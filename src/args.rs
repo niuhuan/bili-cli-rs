@@ -1,6 +1,6 @@
 use bilirust::{FNVAL_DASH, FNVAL_MP4};
 use clap::{arg, Arg, ArgMatches};
-use dialoguer::Select;
+use dialoguer::{Input, Select};
 
 pub(crate) fn format() -> Arg<'static> {
     arg!(-f --format <format>)
@@ -34,4 +34,19 @@ pub(crate) fn format_fnval(format_str: &str) -> i64 {
         "dash" => FNVAL_DASH,
         _ => panic!("格式不正确"),
     }
+}
+
+pub(crate) fn url() -> Arg<'static> {
+    arg!(<url>).required(false).help("需要下载的url")
+}
+
+pub(crate) fn url_value(matches: &ArgMatches) -> String {
+    let url: &str = matches.value_of("url").unwrap_or("");
+    if "" == url {
+        return Input::new()
+            .with_prompt("请输入视频网址")
+            .interact_text()
+            .unwrap();
+    }
+    url.to_string()
 }

@@ -38,7 +38,7 @@ fn app() -> App<'static> {
             App::new("down")
                 .about("下载视频")
                 .arg(args::format())
-                .arg(arg!(<url>).help("需要下载的url")),
+                .arg(args::url()),
         )
         .subcommand(
             App::new("continue")
@@ -130,8 +130,8 @@ async fn user() {
 
 // 新下载
 async fn down(matches: &ArgMatches) {
-    let url = matches.value_of("url").unwrap();
-    let find = BV_PATTERN.find(url);
+    let url = args::url_value(&matches);
+    let find = BV_PATTERN.find(url.as_str());
     match find {
         Some(find) => {
             // 提取BV
@@ -271,7 +271,7 @@ async fn down(matches: &ArgMatches) {
                     drop(file);
                     drop(reader);
                     pb.finish_with_message("Audio Done");
-                    println!("Audio Done");
+                    println!("音频下载完成");
                     // 下载视频
                     println!("下载视频 : {}", video_file.clone());
                     let video_rsp = request_resource(video.base_url).await;
@@ -309,7 +309,7 @@ async fn down(matches: &ArgMatches) {
                     drop(file);
                     drop(reader);
                     pb.finish_with_message("Video Done");
-                    println!("Video Done");
+                    println!("视频下载完成");
                     // 合并
                     println!("合并中...");
                     let mix_result = ffmpeg_cmd::ffmpeg_merge_file(
@@ -398,7 +398,9 @@ async fn down(matches: &ArgMatches) {
     }
 }
 
-async fn continue_fn(_matches: &ArgMatches) {}
+async fn continue_fn(_matches: &ArgMatches) {
+    println!("还在建设中");
+}
 
 fn convert_error(err: reqwest::Error) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::Other, err)
