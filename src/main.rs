@@ -19,14 +19,14 @@ use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 
 use entities::*;
-
-use crate::local::{
+use local::{
     connect_db, create_table_if_not_exists, join_paths, load_property, save_property,
     save_property_from_db, template_dir,
 };
 
 mod args;
 mod entities;
+mod ffmpeg_cmd;
 mod local;
 mod types;
 
@@ -49,6 +49,7 @@ fn app() -> App<'static> {
 
 #[tokio::main]
 async fn main() {
+    ffmpeg_cmd::ffmpeg_run_version();
     let matches = app().get_matches();
     match matches.subcommand() {
         None => app().print_help().unwrap(),
@@ -230,13 +231,15 @@ async fn down(matches: &ArgMatches) {
                         join_paths(vec![dir.clone().as_str(), format!("{}.audio", bv).as_str()]);
                     let video_file =
                         join_paths(vec![dir.clone().as_str(), format!("{}.video", bv).as_str()]);
+                    let mix_file =
+                        join_paths(vec![dir.clone().as_str(), format!("{}.mp4", bv).as_str()]);
 
                     // 下载音频
                     println!("下载音频 : {}", audio_file.clone());
                     let audio_rsp = request_resource(audio.base_url).await;
                     let audio_length = content_length(&audio_rsp);
                     let mut down_count: u64 = 0;
-                    let mut file = std::fs::File::create(audio_file).unwrap();
+                    let mut file = std::fs::File::create(audio_file.clone()).unwrap();
                     let mut buf = [0; 8192];
                     let mut reader =
                         StreamReader::new(audio_rsp.bytes_stream().map_err(convert_error));
@@ -274,7 +277,7 @@ async fn down(matches: &ArgMatches) {
                     let video_rsp = request_resource(video.base_url).await;
                     let video_length = content_length(&video_rsp);
                     let mut down_count: u64 = 0;
-                    let mut file = std::fs::File::create(video_file).unwrap();
+                    let mut file = std::fs::File::create(video_file.clone()).unwrap();
                     let mut buf = [0; 8192];
                     let mut reader =
                         StreamReader::new(video_rsp.bytes_stream().map_err(convert_error));
@@ -307,6 +310,14 @@ async fn down(matches: &ArgMatches) {
                     drop(reader);
                     pb.finish_with_message("Video Done");
                     println!("Video Done");
+                    // 合并
+                    println!("合并中...");
+                    let mix_result = ffmpeg_cmd::ffmpeg_merge_file(
+                        vec![video_file.clone(), audio_file.clone()],
+                        mix_file.clone(),
+                    );
+                    mix_result.unwrap();
+                    println!("合并完成");
                 }
                 "mp4" => {
                     let dir = join_paths(vec![
