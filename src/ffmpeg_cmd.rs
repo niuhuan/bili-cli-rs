@@ -14,7 +14,7 @@ pub(crate) fn ffmpeg_run_version() {
     }
 }
 
-pub(crate) fn ffmpeg_merge_file(list: Vec<String>, output: String) -> bilirust::Result<()> {
+pub(crate) fn ffmpeg_merge_file(list: Vec<&str>, output: &str) -> bilirust::Result<()> {
     let mut cmd = Command::new("ffmpeg");
     cmd.stderr(Stdio::null());
     cmd.stdout(Stdio::null());

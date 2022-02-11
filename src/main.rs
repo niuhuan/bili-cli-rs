@@ -56,8 +56,8 @@ async fn login() {
     let code = QrCode::new(qr_data.url.clone().as_str().as_bytes()).unwrap();
     let image = code.render::<Luma<u8>>().build();
     let path = join_paths(vec![
-        template_dir().as_str(),
-        (uuid::Uuid::new_v4().to_string() + ".png").as_str(),
+        template_dir(),
+        uuid::Uuid::new_v4().to_string() + ".png",
     ]);
     image.save(path.as_str()).unwrap();
     opener::open(path).unwrap();

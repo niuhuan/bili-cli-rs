@@ -11,13 +11,13 @@ use tokio::sync::Mutex;
 use crate::entities::*;
 use crate::types::*;
 
-pub(crate) fn join_paths(paths: Vec<&str>) -> String {
+pub(crate) fn join_paths<S: Into<String>>(paths: Vec<S>) -> String {
     match paths.len() {
         0 => String::default(),
         _ => {
             let mut path: PathBuf = PathBuf::new();
-            for x in 0..paths.len() {
-                path = path.join(paths[x]);
+            for x in paths {
+                path = path.join(x.into());
             }
             return path.to_str().unwrap().to_string();
         }
