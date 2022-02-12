@@ -1,5 +1,4 @@
 use std::env::current_dir;
-use std::fmt::format;
 use std::io::Write;
 use std::path::Path;
 
@@ -13,8 +12,7 @@ use lazy_static::lazy_static;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 
-use crate::entities::*;
-use crate::local::{connect_db, create_table_if_not_exists, join_paths, save_property_from_db};
+use crate::local::join_paths;
 use crate::{args, ffmpeg_cmd, login_client};
 
 lazy_static! {
@@ -45,6 +43,7 @@ async fn down_bv(matches: &ArgMatches, bv: String) {
     let client = login_client().await;
     // 获取基本信息
     let info = client.bv_info(bv.clone()).await.unwrap();
+    println!("  {}", &info.title);
     // 获取格式+获取清晰度
     let format_str = args::format_value(&matches);
     let format = args::format_fnval(format_str);
@@ -120,205 +119,36 @@ async fn down_bv(matches: &ArgMatches, bv: String) {
             }
             let video = video.unwrap();
             let audio = audio.unwrap();
-            // 文件夹
-            let dir = join_paths(vec![
-                current_dir().unwrap().to_str().unwrap(),
-                format!("{}_{}_{}_{}", bv, format_str, quality_video, quality_audio).as_str(),
-            ]);
-            println!("下载到文件夹 : {}", dir.clone());
-            if Path::new(dir.clone().as_str()).exists() {
-                panic!("文件夹已存在, 请使用continue");
+            // 文件名
+            let name = format!("{}", info.title);
+            let audio_file = format!("{}.audio", name);
+            let video_file = format!("{}.video", name);
+            let mix_file = format!("{}.mp4", name);
+            println!("下载到文件 : {}", &mix_file);
+            if Path::new(&mix_file).exists() {
+                panic!("文件已存在");
             }
-            std::fs::create_dir_all(dir.clone()).unwrap();
-            let audio_file = join_paths(vec![dir.as_str(), format!("{}.audio", bv).as_str()]);
-            let video_file = join_paths(vec![dir.as_str(), format!("{}.video", bv).as_str()]);
-            let mix_file = join_paths(vec![dir.as_str(), format!("{}.mp4", bv).as_str()]);
-
-            println!("初始化...");
-            let db = connect_db(join_paths(vec![dir.as_str(), "task.db"]).as_str()).await;
-            create_table_if_not_exists(&db, property::Entity).await;
-            property::init_indexes(&db).await;
-            save_property_from_db(&db, "download_type".to_owned(), "bv".to_owned())
-                .await
-                .unwrap();
-            save_property_from_db(&db, "bv".to_owned(), bv.clone())
-                .await
-                .unwrap();
-            save_property_from_db(&db, "format_str".to_owned(), vu.format.clone())
-                .await
-                .unwrap();
-            save_property_from_db(
-                &db,
-                "quality_video".to_owned(),
-                format!("{}", quality_video),
-            )
-            .await
-            .unwrap();
-            save_property_from_db(
-                &db,
-                "quality_audio".to_owned(),
-                format!("{}", quality_audio),
-            )
-            .await
-            .unwrap();
-
-            // 下载音频
-            println!("下载音频 : {}", audio_file.clone());
-            let audio_rsp = request_resource(audio.base_url.as_str()).await;
-            let audio_length = content_length(&audio_rsp);
-            save_property_from_db(&db, "audio_length".to_owned(), format!("{}", audio_length))
-                .await
-                .unwrap();
-            let mut down_count: u64 = 0;
-            let mut file = std::fs::File::create(audio_file.clone()).unwrap();
-            let mut buf = [0; 8192];
-            let mut reader = StreamReader::new(audio_rsp.bytes_stream().map_err(convert_error));
-            let pb = ProgressBar::new(audio_length);
-            loop {
-                pb.set_position(down_count);
-                let read = reader.read(&mut buf);
-                let read = read.await;
-                match read {
-                    Ok(read) => {
-                        if read == 0 {
-                            break;
-                        }
-                        file.write(&buf[0..read]).unwrap();
-                        down_count = down_count + read as u64;
-                        save_property_from_db(
-                            &db,
-                            "audio_down_count".to_owned(),
-                            format!("{}", down_count),
-                        )
-                        .await
-                        .unwrap();
-                    }
-                    Err(err) => {
-                        panic!("{}", err)
-                    }
-                }
-            }
-            drop(file);
-            drop(reader);
-            pb.finish_with_message("Audio Done");
-            println!("音频下载完成");
-            // 下载视频
-            println!("下载视频 : {}", video_file.clone());
-            let video_rsp = request_resource(video.base_url.as_str()).await;
-            let video_length = content_length(&video_rsp);
-            save_property_from_db(&db, "video_length".to_owned(), format!("{}", video_length))
-                .await
-                .unwrap();
-            let mut down_count: u64 = 0;
-            let mut file = std::fs::File::create(video_file.clone()).unwrap();
-            let mut buf = [0; 8192];
-            let mut reader = StreamReader::new(video_rsp.bytes_stream().map_err(convert_error));
-            let pb = ProgressBar::new(video_length);
-            loop {
-                pb.set_position(down_count);
-                let read = reader.read(&mut buf);
-                let read = read.await;
-                match read {
-                    Ok(read) => {
-                        if read == 0 {
-                            break;
-                        }
-                        file.write(&buf[0..read]).unwrap();
-                        down_count = down_count + read as u64;
-                        save_property_from_db(
-                            &db,
-                            "video_down_count".to_owned(),
-                            format!("{}", down_count),
-                        )
-                        .await
-                        .unwrap();
-                    }
-                    Err(err) => {
-                        panic!("{}", err)
-                    }
-                }
-            }
-            drop(file);
-            drop(reader);
-            pb.finish_with_message("Video Done");
-            println!("视频下载完成");
-            // 合并
-            println!("合并中...");
+            // 下载
+            down_file_to(&audio.base_url, &audio_file, "下载音频").await;
+            println!(" > 下载音频");
+            down_file_to(&video.base_url, &video_file, "下载视频").await;
+            println!(" > 下载视频");
+            println!(" > 合并视频");
             let mix_result =
                 ffmpeg_cmd::ffmpeg_merge_file(vec![&video_file, &audio_file], &mix_file);
             mix_result.unwrap();
-            println!("合并完成");
+            println!(" > 清理合并前的数据");
+            let _ = std::fs::remove_file(&audio_file);
+            let _ = std::fs::remove_file(&video_file);
         }
         "mp4" => {
-            let dir = join_paths(vec![
-                current_dir().unwrap().to_str().unwrap(),
-                format!("{}_{}", bv, format_str).as_str(),
-            ]);
-            println!("下载到文件夹 : {}", dir.clone());
-            if Path::new(dir.clone().as_str()).exists() {
-                panic!("文件夹已存在, 请使用continue");
+            let file = format!("{}.mp4", info.title);
+            println!("下载到文件 : {}", &file);
+            if Path::new(&file).exists() {
+                panic!("文件夹已存在");
             }
-            println!("链接中...");
-            let rsp = request_resource(vu.durl.first().unwrap().url.as_str()).await;
-            let length = content_length(&rsp);
-            std::fs::create_dir_all(dir.clone()).unwrap();
-            println!("初始化...");
-            let db = connect_db(join_paths(vec![dir.as_str(), "task.db"]).as_str()).await;
-            create_table_if_not_exists(&db, property::Entity).await;
-            property::init_indexes(&db).await;
-            save_property_from_db(&db, "download_type".to_owned(), "bv".to_owned())
-                .await
-                .unwrap();
-            save_property_from_db(&db, "bv".to_owned(), bv.clone())
-                .await
-                .unwrap();
-            save_property_from_db(&db, "format_str".to_owned(), vu.format.clone())
-                .await
-                .unwrap();
-            save_property_from_db(&db, "quality_str".to_owned(), format!("{}", vu.quality))
-                .await
-                .unwrap();
-            save_property_from_db(&db, "content_length".to_owned(), format!("{}", length))
-                .await
-                .unwrap();
-            let file = join_paths(vec![
-                dir.clone().as_str(),
-                format!("{}.{}", bv, format_str).as_str(),
-            ]);
-            println!("下载到文件 : {}", file.clone());
-            let mut down_count: u64 = 0;
-            let mut file = std::fs::File::create(file).unwrap();
-            let mut buf = [0; 8192];
-            let mut reader = StreamReader::new(rsp.bytes_stream().map_err(convert_error));
-            let pb = ProgressBar::new(length);
-            loop {
-                pb.set_position(down_count);
-                let read = reader.read(&mut buf);
-                let read = read.await;
-                match read {
-                    Ok(read) => {
-                        if read == 0 {
-                            break;
-                        }
-                        file.write(&buf[0..read]).unwrap();
-                        down_count = down_count + read as u64;
-                        save_property_from_db(
-                            &db,
-                            "down_count".to_owned(),
-                            format!("{}", down_count),
-                        )
-                        .await
-                        .unwrap();
-                    }
-                    Err(err) => {
-                        panic!("{}", err)
-                    }
-                }
-            }
-            drop(file);
-            drop(reader);
-            pb.finish_with_message("Done");
-            println!("Done");
+            down_file_to(&(vu.durl.first().unwrap().url), &file, "下载中").await;
+            println!("下载完成");
         }
         &_ => panic!("e2"),
     }
@@ -397,9 +227,14 @@ async fn down_coll(_matches: &ArgMatches, id: String) {
             let final_file = join_paths(vec![&ss_dir, &final_name]);
             //
             down_file_to(audio_url, &audio_file, "下载音频").await;
+            println!(" > 下载音频");
             down_file_to(video_url, &video_file, "下载视频").await;
+            println!(" > 下载视频");
+            println!(" > 合并视频");
             ffmpeg_cmd::ffmpeg_merge_file(vec![&video_file, &audio_file], &final_file).unwrap();
-            println!("合并完成");
+            println!(" > 清理合并前的数据");
+            let _ = std::fs::remove_file(&audio_file);
+            let _ = std::fs::remove_file(&video_file);
             println!();
         }
     }
@@ -444,7 +279,6 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
     drop(file);
     drop(reader);
     pb.finish_and_clear();
-    println!("{} Done", title);
 }
 
 pub(crate) async fn continue_fn(_matches: &ArgMatches) {

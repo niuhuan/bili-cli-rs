@@ -5,11 +5,7 @@ bili-cli
 
 ## 用户界面
 
-![](images/down01.png)
-
-![](images/down02.png)
-
-![](images/down03.png)
+![](images/down_bv.gif)
 
 ## 实现功能
 
@@ -19,8 +15,7 @@ bili-cli
 - [x] 视频下载
   - [x] 高清视频下载并合并
   - [x] BV下载
-  - [ ] EP下载
-  - [ ] 系列下载
+  - [x] EP/SS下载
   - [ ] 断点续传
 
 ## 如何使用
