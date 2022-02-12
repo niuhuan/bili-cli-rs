@@ -1,5 +1,5 @@
 use std::ops::Deref;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use async_once::AsyncOnce;
@@ -9,21 +9,23 @@ use sea_orm::{ConnectionTrait, DatabaseConnection, Schema, Statement};
 use tokio::sync::Mutex;
 
 use crate::entities::*;
-use crate::types::*;
+use crate::Result;
 
-pub(crate) fn join_paths<S: Into<String>>(paths: Vec<S>) -> String {
+/// 连接路径
+pub(crate) fn join_paths<P: AsRef<Path>>(paths: Vec<P>) -> String {
     match paths.len() {
         0 => String::default(),
         _ => {
             let mut path: PathBuf = PathBuf::new();
             for x in paths {
-                path = path.join(x.into());
+                path = path.join(x);
             }
             return path.to_str().unwrap().to_string();
         }
     }
 }
 
+/// 取配置文件目录
 #[cfg(target_os = "macos")]
 fn cfg_local_dir() -> String {
     join_paths(vec![
@@ -34,6 +36,7 @@ fn cfg_local_dir() -> String {
     ])
 }
 
+/// 取配置文件目录
 #[cfg(target_os = "windows")]
 fn cfg_local_dir() -> String {
     join_paths(vec![
@@ -44,6 +47,7 @@ fn cfg_local_dir() -> String {
     ])
 }
 
+/// 取配置文件目录
 #[cfg(target_os = "linux")]
 fn cfg_local_dir() -> String {
     join_paths(vec![
@@ -52,20 +56,24 @@ fn cfg_local_dir() -> String {
     ])
 }
 
+/// 取临时文件目录
 #[cfg(target_os = "macos")]
 pub(crate) fn template_dir() -> String {
     "/tmp".to_owned()
 }
 
+/// 取临时文件目录
 #[cfg(target_os = "linux")]
 pub(crate) fn template_dir() -> String {
     "/tmp".to_owned()
 }
 
+/// 初始化配置文件目录
 fn init_dir() {
     std::fs::create_dir_all(cfg_local_dir()).unwrap();
 }
 
+/// 连接到Sqlite数据库
 pub(crate) async fn connect_db(path: &str) -> DatabaseConnection {
     let url = format!("sqlite:{}?mode=rwc", path);
     let mut opt = sea_orm::ConnectOptions::new(url);
@@ -77,6 +85,7 @@ pub(crate) async fn connect_db(path: &str) -> DatabaseConnection {
     sea_orm::Database::connect(opt).await.unwrap()
 }
 
+/// 如果表不存在则创建
 pub(crate) async fn create_table_if_not_exists<E>(db: &DatabaseConnection, entity: E)
 where
     E: EntityTrait,
@@ -86,6 +95,7 @@ where
     };
 }
 
+/// 是否存在表
 async fn has_table(db: &DatabaseConnection, table_name: &str) -> bool {
     let stmt = Statement::from_string(
         db.get_database_backend(),
@@ -99,6 +109,7 @@ async fn has_table(db: &DatabaseConnection, table_name: &str) -> bool {
     count > 0
 }
 
+/// 创建表
 async fn create_table<E>(db: &DatabaseConnection, entity: E)
 where
     E: EntityTrait,
@@ -109,6 +120,8 @@ where
     let stmt = builder.build(stmt);
     db.execute(stmt).await.unwrap();
 }
+
+/// 索引是否存在
 pub(crate) async fn index_exists(
     db: &DatabaseConnection,
     table_name: &str,
@@ -130,6 +143,7 @@ pub(crate) async fn index_exists(
         > 0
 }
 
+/// 创建索引
 pub(crate) async fn create_index(
     db: &DatabaseConnection,
     table_name: &str,
@@ -149,6 +163,7 @@ pub(crate) async fn create_index(
 }
 
 lazy_static! {
+    /// 静态初始化配置文件数据库
     pub(crate) static ref PROPERTY_DB: AsyncOnce<Mutex<DatabaseConnection>> =
         AsyncOnce::new(async {
             init_dir();
@@ -161,6 +176,7 @@ lazy_static! {
         });
 }
 
+/// 从数据库读取配置文件
 pub(crate) async fn load_property_from_db(db: &DatabaseConnection, k: String) -> Result<String> {
     let in_db = property::Entity::find_by_id(k.clone())
         .one(db.deref())
@@ -171,10 +187,12 @@ pub(crate) async fn load_property_from_db(db: &DatabaseConnection, k: String) ->
     })
 }
 
+/// 从默认数据库读取配置文件
 pub(crate) async fn load_property(k: String) -> Result<String> {
     load_property_from_db(PROPERTY_DB.get().await.lock().await.deref(), k).await
 }
 
+/// 写入配置文件夹
 pub(crate) async fn save_property_from_db(
     db: &DatabaseConnection,
     k: String,
@@ -202,6 +220,7 @@ pub(crate) async fn save_property_from_db(
     Ok(())
 }
 
+/// 从默认数据库写入配置文件
 pub(crate) async fn save_property(k: String, v: String) -> Result<()> {
     save_property_from_db(PROPERTY_DB.get().await.lock().await.deref(), k, v).await
 }

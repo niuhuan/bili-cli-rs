@@ -2,6 +2,7 @@ use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 
+pub(crate) use bilirust::Result;
 use bilirust::WebToken;
 use clap::{arg, App};
 use image::Luma;
@@ -15,7 +16,6 @@ mod down;
 mod entities;
 mod ffmpeg_cmd;
 mod local;
-mod types;
 
 fn app() -> App<'static> {
     App::new("bili-cli")
@@ -36,28 +36,33 @@ fn app() -> App<'static> {
 
 #[tokio::main]
 async fn main() {
-    ffmpeg_cmd::ffmpeg_run_version();
-    let matches = app().get_matches();
-    match matches.subcommand() {
-        None => app().print_help().unwrap(),
-        Some((subcommand, matches)) => match subcommand {
-            "login" => login().await,
-            "user" => user().await,
-            "down" => down::down(matches).await,
-            "continue" => down::continue_fn(matches).await,
-            _ => app().print_help().unwrap(),
-        },
-    };
+    run_app().await.unwrap();
 }
 
-async fn login() {
+async fn run_app() -> crate::Result<()> {
+    ffmpeg_cmd::ffmpeg_run_version()?;
+    let matches = app().get_matches();
+    match matches.subcommand() {
+        None => app().print_help()?,
+        Some((subcommand, matches)) => match subcommand {
+            "login" => login().await?,
+            "user" => user().await?,
+            "down" => down::down(matches).await?,
+            "continue" => down::continue_fn(matches).await?,
+            _ => app().print_help()?,
+        },
+    }
+    Ok(())
+}
+
+async fn login() -> Result<()> {
     let client = bilirust::Client::new();
     let qr_data = client.login_qr().await.unwrap();
     let code = QrCode::new(qr_data.url.clone().as_str().as_bytes()).unwrap();
     let image = code.render::<Luma<u8>>().build();
     let path = join_paths(vec![
-        template_dir(),
-        uuid::Uuid::new_v4().to_string() + ".png",
+        &template_dir(),
+        &(uuid::Uuid::new_v4().to_string() + ".png"),
     ]);
     image.save(path.as_str()).unwrap();
     opener::open(path).unwrap();
@@ -76,9 +81,7 @@ async fn login() {
                             .login_qr_info_parse_token(info.url.to_string())
                             .unwrap();
                         let web_token_string = to_string(&web_token).unwrap();
-                        save_property("web_token".to_owned(), web_token_string)
-                            .await
-                            .unwrap();
+                        save_property("web_token".to_owned(), web_token_string).await?;
                         println!("OK");
                         break;
                     }
@@ -93,20 +96,22 @@ async fn login() {
             }
         }
     }
+    Ok(())
 }
 
-async fn login_client() -> bilirust::Client {
-    let property = load_property("web_token".to_owned()).await.unwrap();
-    if property.clone().as_str() == "" {
+async fn login_client() -> Result<bilirust::Client> {
+    let property = load_property("web_token".to_owned()).await?;
+    if &property == "" {
         println!("需要登录");
         exit(1);
     }
-    let token: WebToken = from_str(property.as_str()).unwrap();
+    let token: WebToken = from_str(property.as_str())?;
     let mut client = bilirust::Client::new();
     client.login_set_sess_data(token.sessdata);
-    client
+    Ok(client)
 }
 
-async fn user() {
-    println!("{:?}", login_client().await.my_info().await.unwrap());
+async fn user() -> Result<()> {
+    println!("{:?}", login_client().await?.my_info().await?);
+    Ok(())
 }

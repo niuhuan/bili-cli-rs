@@ -1,19 +1,19 @@
-use std::process::{exit, Command, Stdio};
+use std::process::{Command, Stdio};
 
-pub(crate) fn ffmpeg_run_version() {
+pub(crate) fn ffmpeg_run_version() -> crate::Result<()> {
     let mut cmd = Command::new("ffmpeg");
     cmd.stderr(Stdio::null());
     cmd.stdout(Stdio::null());
     cmd.arg("-version");
     match cmd.status() {
-        Ok(_) => {}
-        Err(_) => {
-            eprintln!("未找到ffmpeg, 请先安装ffmpeg.");
-            exit(1);
-        }
+        Ok(_) => Ok(()),
+        Err(_) => Err(Box::from(bilirust::Error::from(
+            "未找到ffmpeg, 请先安装ffmpeg.",
+        ))),
     }
 }
 
+/// 合并音频视频
 pub(crate) fn ffmpeg_merge_file(list: Vec<&str>, output: &str) -> bilirust::Result<()> {
     let mut cmd = Command::new("ffmpeg");
     cmd.stderr(Stdio::null());

@@ -21,27 +21,25 @@ lazy_static! {
 }
 
 // 新下载
-pub(crate) async fn down(matches: &ArgMatches) {
+pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
     let url = args::url_value(&matches);
     let find = BV_PATTERN.find(url.as_str());
     if find.is_some() {
         let find = find.unwrap();
-        down_bv(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
-        return;
+        return down_bv(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
     }
     let find = COLLECTION_PATTERN.find(url.as_str());
     if find.is_some() {
         let find = find.unwrap();
-        down_coll(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
-        return;
+        return down_series(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
     }
+    Ok(())
 }
 
-async fn down_bv(matches: &ArgMatches, bv: String) {
-    println!("匹配到 : {}", bv.clone());
-    // 提取
-    let client = login_client().await;
+async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
+    let client = login_client().await?;
     // 获取基本信息
+    println!("匹配到 : {}", bv.clone());
     let info = client.bv_info(bv.clone()).await.unwrap();
     println!("  {}", &info.title);
     // 获取格式+获取清晰度
@@ -151,11 +149,13 @@ async fn down_bv(matches: &ArgMatches, bv: String) {
             println!("下载完成");
         }
         &_ => panic!("e2"),
-    }
+    };
+    Ok(())
 }
 
-async fn down_coll(_matches: &ArgMatches, id: String) {
-    let client = login_client().await;
+/// 下载一系列视频
+async fn down_series(_matches: &ArgMatches, id: String) -> crate::Result<()> {
+    let client = login_client().await?;
     println!();
     println!("匹配到合集 : {}", id);
     let ss_state = client.videos_info(id.clone()).await.unwrap();
@@ -239,6 +239,7 @@ async fn down_coll(_matches: &ArgMatches, id: String) {
         }
     }
     println!("全部完成");
+    Ok(())
 }
 
 async fn down_file_to(url: &str, path: &str, title: &str) {
@@ -281,8 +282,9 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
     pb.finish_and_clear();
 }
 
-pub(crate) async fn continue_fn(_matches: &ArgMatches) {
+pub(crate) async fn continue_fn(_matches: &ArgMatches) -> crate::Result<()> {
     println!("还在建设中");
+    Ok(())
 }
 
 fn convert_error(err: reqwest::Error) -> std::io::Error {
