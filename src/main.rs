@@ -4,7 +4,7 @@ use std::time::Duration;
 
 pub(crate) use bilirust::Result;
 use bilirust::WebToken;
-use clap::{arg, App};
+use clap::{arg, Command};
 use image::Luma;
 use qrcode::QrCode;
 use serde_json::{from_str, to_string};
@@ -17,18 +17,18 @@ mod entities;
 mod ffmpeg_cmd;
 mod local;
 
-fn app() -> App<'static> {
-    App::new("bili-cli")
-        .subcommand(App::new("login").about("使用二维码登录"))
-        .subcommand(App::new("user").about("用户信息"))
+fn app() -> Command<'static> {
+    Command::new("bili-cli")
+        .subcommand(Command::new("login").about("使用二维码登录"))
+        .subcommand(Command::new("user").about("用户信息"))
         .subcommand(
-            App::new("down")
+            Command::new("down")
                 .about("下载视频")
                 .arg(args::format())
                 .arg(args::url()),
         )
         .subcommand(
-            App::new("continue")
+            Command::new("continue")
                 .about("继续下载视频")
                 .arg(arg!(<dir>).help("上次的文件夹")),
         )

@@ -68,6 +68,12 @@ pub(crate) fn template_dir() -> String {
     "/tmp".to_owned()
 }
 
+/// 取临时文件目录
+#[cfg(target_os = "windows")]
+pub(crate) fn template_dir() -> String {
+    std::env::temp_dir().to_str().unwrap().to_owned()
+}
+
 /// 初始化配置文件目录
 fn init_dir() {
     std::fs::create_dir_all(cfg_local_dir()).unwrap();
@@ -87,8 +93,8 @@ pub(crate) async fn connect_db(path: &str) -> DatabaseConnection {
 
 /// 如果表不存在则创建
 pub(crate) async fn create_table_if_not_exists<E>(db: &DatabaseConnection, entity: E)
-where
-    E: EntityTrait,
+    where
+        E: EntityTrait,
 {
     if !has_table(db, entity.table_name()).await {
         create_table(db, entity).await;
@@ -111,8 +117,8 @@ async fn has_table(db: &DatabaseConnection, table_name: &str) -> bool {
 
 /// 创建表
 async fn create_table<E>(db: &DatabaseConnection, entity: E)
-where
-    E: EntityTrait,
+    where
+        E: EntityTrait,
 {
     let builder = db.get_database_backend();
     let schema = Schema::new(builder);
