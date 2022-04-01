@@ -1,6 +1,7 @@
 use std::env::current_dir;
 use std::io::Write;
 use std::path::Path;
+use std::process::exit;
 
 use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
 use clap::ArgMatches;
@@ -9,6 +10,7 @@ use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
+use reqwest::StatusCode;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 
@@ -16,13 +18,34 @@ use crate::local::join_paths;
 use crate::{args, ffmpeg_cmd, login_client};
 
 lazy_static! {
+    static ref SHORT_PATTERN: regex::Regex =
+        regex::Regex::new(r"//b\d+\.tv/([0-9a-zA-Z]+)$").unwrap();
     static ref BV_PATTERN: regex::Regex = regex::Regex::new(r"BV[0-9a-zA-Z]{10}").unwrap();
     static ref COLLECTION_PATTERN: regex::Regex = regex::Regex::new(r"(ep)|(ss)[0-9]+").unwrap();
 }
 
 // 新下载
 pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
-    let url = args::url_value(&matches);
+    let mut url = args::url_value(&matches);
+    let find = SHORT_PATTERN.find(url.as_str());
+    if let Some(find) = find {
+        let rsp = reqwest::ClientBuilder::new()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?
+            .get(&url)
+            .send()
+            .await?;
+        match rsp.status().as_u16() {
+            302 => {
+                let headers = rsp.headers();
+                let location = headers.get("location");
+                if let Some(location) = location {
+                    url = location.to_str()?.to_owned();
+                }
+            }
+            fail => return Err(Box::new(bilirust::Error::from("resolve short links error"))),
+        }
+    }
     let find = BV_PATTERN.find(url.as_str());
     if find.is_some() {
         let find = find.unwrap();
