@@ -2,7 +2,7 @@ use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 
-pub(crate) use bilirust::Result;
+pub(crate) use anyhow::Result;
 use bilirust::WebToken;
 use clap::{arg, Command};
 use image::Luma;

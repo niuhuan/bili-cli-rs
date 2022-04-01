@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 async_once = "0.2.6"
+anyhow = "1.0"
 bilirust = { git = "https://github.com/niuhuan/bilirust.git", branch = "master" }
 clap = { version = "3.0.14", features = ["derive"] }
 dirs = "4.0.0"

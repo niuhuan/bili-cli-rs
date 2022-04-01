@@ -7,9 +7,7 @@ pub(crate) fn ffmpeg_run_version() -> crate::Result<()> {
     cmd.arg("-version");
     match cmd.status() {
         Ok(_) => Ok(()),
-        Err(_) => Err(Box::from(bilirust::Error::from(
-            "未找到ffmpeg, 请先安装ffmpeg.",
-        ))),
+        Err(_) => Err(anyhow::Error::msg("未找到ffmpeg, 请先安装ffmpeg.")),
     }
 }
 
@@ -31,9 +29,9 @@ pub(crate) fn ffmpeg_merge_file(list: Vec<&str>, output: &str) -> bilirust::Resu
     if status.code().unwrap() == 0 {
         Ok(())
     } else {
-        Err(Box::from(bilirust::Error::from(format!(
+        Err(anyhow::Error::msg(format!(
             "FFMPEG 未能成功运行 : EXIT CODE : {}",
             status.code().unwrap()
-        ))))
+        )))
     }
 }

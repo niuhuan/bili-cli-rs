@@ -1,7 +1,6 @@
 use std::env::current_dir;
 use std::io::Write;
 use std::path::Path;
-use std::process::exit;
 
 use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
 use clap::ArgMatches;
@@ -10,7 +9,6 @@ use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use reqwest::StatusCode;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 
@@ -27,8 +25,7 @@ lazy_static! {
 // 新下载
 pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
     let mut url = args::url_value(&matches);
-    let find = SHORT_PATTERN.find(url.as_str());
-    if let Some(find) = find {
+    if let Some(_) = SHORT_PATTERN.find(url.as_str()) {
         let rsp = reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
             .build()?
@@ -43,17 +40,13 @@ pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
                     url = location.to_str()?.to_owned();
                 }
             }
-            fail => return Err(Box::new(bilirust::Error::from("resolve short links error"))),
+            _ => return Err(anyhow::Error::msg("resolve short links error")),
         }
     }
-    let find = BV_PATTERN.find(url.as_str());
-    if find.is_some() {
-        let find = find.unwrap();
+    if let Some(find) = BV_PATTERN.find(url.as_str()) {
         return down_bv(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
     }
-    let find = COLLECTION_PATTERN.find(url.as_str());
-    if find.is_some() {
-        let find = find.unwrap();
+    if let Some(find) = COLLECTION_PATTERN.find(url.as_str()) {
         return down_series(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
     }
     Ok(())
