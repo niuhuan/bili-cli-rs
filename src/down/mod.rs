@@ -2,7 +2,7 @@ use std::env::current_dir;
 use std::io::Write;
 use std::path::Path;
 
-use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K, VIDEO_QUALITY_1080P_HIGH};
+use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
 use clap::ArgMatches;
 use dialoguer::Select;
 use futures::stream::TryStreamExt;
@@ -62,7 +62,7 @@ async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
     let format_str = args::format_value(&matches);
     let format = args::format_fnval(format_str);
     let vu = client
-        .bv_download_url(bv.clone(), info.cid, format, VIDEO_QUALITY_1080P_HIGH)
+        .bv_download_url(bv.clone(), info.cid, format, VIDEO_QUALITY_4K)
         .await
         .unwrap();
     match format_str {
