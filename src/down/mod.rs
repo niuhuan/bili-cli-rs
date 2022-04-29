@@ -2,7 +2,7 @@ use std::env::current_dir;
 use std::io::Write;
 use std::path::Path;
 
-use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
+use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K, VIDEO_QUALITY_1080P_HIGH};
 use clap::ArgMatches;
 use dialoguer::Select;
 use futures::stream::TryStreamExt;
@@ -62,7 +62,7 @@ async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
     let format_str = args::format_value(&matches);
     let format = args::format_fnval(format_str);
     let vu = client
-        .bv_download_url(bv.clone(), info.cid, format, VIDEO_QUALITY_4K)
+        .bv_download_url(bv.clone(), info.cid, format, VIDEO_QUALITY_1080P_HIGH)
         .await
         .unwrap();
     match format_str {
@@ -191,7 +191,7 @@ async fn down_series(_matches: &ArgMatches, id: String) -> crate::Result<()> {
     println!();
     // todo
     if Path::new(project_dir.as_str()).exists() {
-        panic!("文件夹已存在, 请使用continue");
+        //panic!("文件夹已存在, 请使用continue");
     }
     std::fs::create_dir_all(project_dir.as_str()).unwrap();
 
@@ -227,6 +227,12 @@ async fn down_series(_matches: &ArgMatches, id: String) -> crate::Result<()> {
             let audio_name = format!("{}.audio", name);
             let video_name = format!("{}.video", name);
             let final_name = format!("{}.mp4", name);
+            let audio_file = join_paths(vec![ss_dir.as_str(), audio_name.as_str()]);
+            let video_file = join_paths(vec![&ss_dir, &video_name]);
+            let final_file = join_paths(vec![&ss_dir, &final_name]);
+            if Path::new(&&final_file).exists() {
+                continue;
+            }
             let bv = client
                 .bv_download_url(
                     ep.bvid.clone(),
@@ -238,9 +244,6 @@ async fn down_series(_matches: &ArgMatches, id: String) -> crate::Result<()> {
                 .unwrap();
             let audio_url: &str = bv.dash.audio.first().unwrap().base_url.as_str();
             let video_url = bv.dash.video.first().unwrap().base_url.as_str();
-            let audio_file = join_paths(vec![ss_dir.as_str(), audio_name.as_str()]);
-            let video_file = join_paths(vec![&ss_dir, &video_name]);
-            let final_file = join_paths(vec![&ss_dir, &final_name]);
             //
             down_file_to(audio_url, &audio_file, "下载音频").await;
             println!(" > 下载音频");
