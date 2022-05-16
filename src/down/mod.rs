@@ -25,6 +25,7 @@ lazy_static! {
 // 新下载
 pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
     let mut url = args::url_value(&matches);
+    let ss = args::ss_value(&matches);
     if let Some(_) = SHORT_PATTERN.find(url.as_str()) {
         let rsp = reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
@@ -47,7 +48,7 @@ pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
         return down_bv(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
     }
     if let Some(find) = COLLECTION_PATTERN.find(url.as_str()) {
-        return down_series(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
+        return down_series(&matches, (&(url[find.start()..find.end()])).to_owned(), url, ss).await;
     }
     Ok(())
 }
@@ -170,11 +171,15 @@ async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
 }
 
 /// 下载一系列视频
-async fn down_series(_matches: &ArgMatches, id: String) -> crate::Result<()> {
+async fn down_series(_matches: &ArgMatches, id: String, url: String, ss: bool) -> crate::Result<()> {
     let client = login_client().await?;
     println!();
     println!("匹配到合集 : {}", id);
-    let ss_state = client.videos_info(id.clone()).await.unwrap();
+    let ss_state = if ss {
+        client.videos_info_by_url(url).await.unwrap()
+    } else {
+        client.videos_info(id.clone()).await.unwrap()
+    };
     println!("  系列名称 : {}", ss_state.media_info.series.clone());
     println!(
         "  包含番剧 : {} ",
@@ -301,11 +306,6 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
     pb.finish_and_clear();
 }
 
-pub(crate) async fn continue_fn(_matches: &ArgMatches) -> crate::Result<()> {
-    println!("还在建设中");
-    Ok(())
-}
-
 fn convert_error(err: reqwest::Error) -> std::io::Error {
     std::io::Error::new(std::io::ErrorKind::Other, err)
 }
@@ -314,7 +314,7 @@ async fn request_resource(url: &str) -> reqwest::Response {
     reqwest::Client::new().get(url).header(
         "user-agent",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36",
-    ).header("referer","https://www.bilibili.com").send().await.unwrap().error_for_status().unwrap()
+    ).header("referer", "https://www.bilibili.com").send().await.unwrap().error_for_status().unwrap()
 }
 
 fn content_length(rsp: &reqwest::Response) -> u64 {

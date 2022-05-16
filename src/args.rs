@@ -45,6 +45,16 @@ pub(crate) fn url() -> Arg<'static> {
     arg!(<url>).required(false).help("需要下载的url")
 }
 
+/// 下载的url, 如果指定的次参数则不需要再输入
+pub(crate) fn ss() -> Arg<'static> {
+    arg!(<ss>)
+        .short('s')
+        .long("ss")
+        .required(false)
+        .takes_value(false)
+        .help("使用url解析剧集数据而不是id, 有的剧集下不了加上这个试试")
+}
+
 /// 获取URL参数的值
 pub(crate) fn url_value(matches: &ArgMatches) -> String {
     let url: &str = matches.value_of("url").unwrap_or("");
@@ -55,4 +65,8 @@ pub(crate) fn url_value(matches: &ArgMatches) -> String {
             .unwrap();
     }
     url.to_string()
+}
+
+pub(crate) fn ss_value(matches: &ArgMatches) -> bool {
+    matches.is_present("ss")
 }

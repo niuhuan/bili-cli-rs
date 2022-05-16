@@ -24,4 +24,12 @@ bili-cli
 
 1. 将ffmpeg命令添加到PATH (合并必须使用)
 2. 运行本软件
-3. task.db是下载进度数据, (计划中)未完结EP下载完成后不删除, 以便以后继续下载新的章节。
+
+```shell
+
+cargo run -- down
+
+# 下载合集时如果出现异常可以尝试增加ss参数
+cargo run -- down --ss
+
+```

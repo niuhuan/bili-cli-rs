@@ -4,7 +4,7 @@ use std::time::Duration;
 
 pub(crate) use anyhow::Result;
 use bilirust::WebToken;
-use clap::{arg, Command};
+use clap::Command;
 use image::Luma;
 use qrcode::QrCode;
 use serde_json::{from_str, to_string};
@@ -25,12 +25,8 @@ fn app() -> Command<'static> {
             Command::new("down")
                 .about("下载视频")
                 .arg(args::format())
-                .arg(args::url()),
-        )
-        .subcommand(
-            Command::new("continue")
-                .about("继续下载视频")
-                .arg(arg!(<dir>).help("上次的文件夹")),
+                .arg(args::url())
+                .arg(args::ss()),
         )
 }
 
@@ -48,7 +44,6 @@ async fn run_app() -> crate::Result<()> {
             "login" => login().await?,
             "user" => user().await?,
             "down" => down::down(matches).await?,
-            "continue" => down::continue_fn(matches).await?,
             _ => app().print_help()?,
         },
     }

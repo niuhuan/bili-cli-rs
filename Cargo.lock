@@ -171,7 +171,7 @@ dependencies = [
 [[package]]
 name = "bilirust"
 version = "0.1.0"
-source = "git+https://github.com/niuhuan/bilirust.git?branch=master#cc5d17d5eb2b1f48feb4c57ca07a05231c86dd20"
+source = "git+https://github.com/niuhuan/bilirust.git?branch=master#4bb124a8fbc1d45545b34acd7025600ca051e329"
 dependencies = [
  "anyhow",
  "chrono",
