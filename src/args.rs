@@ -2,6 +2,12 @@ use bilirust::{FNVAL_DASH, FNVAL_MP4};
 use clap::{arg, Arg, ArgMatches};
 use dialoguer::{Input, Select};
 
+/// 控制台输出二维码参数,
+pub(crate) fn qr_console() -> Arg<'static> {
+    arg!(console_qrcode: --console "在控制台输出二维码")
+        .required(false)
+}
+
 /// 格式参数, 下载bv的时候可以指定格式
 /// -f mp4 默认使用mp4不再确认
 pub(crate) fn format() -> Arg<'static> {
