@@ -4,7 +4,7 @@ use std::time::Duration;
 
 pub(crate) use anyhow::Result;
 use bilirust::WebToken;
-use clap::Command;
+use clap::{ArgMatches, Command};
 use image::Luma;
 use qrcode::QrCode;
 use serde_json::{from_str, to_string};
@@ -19,7 +19,11 @@ mod local;
 
 fn app() -> Command<'static> {
     Command::new("bili-cli")
-        .subcommand(Command::new("login").about("使用二维码登录"))
+        .subcommand(
+            Command::new("login")
+                .about("使用二维码登录")
+                .arg(args::qr_console()),
+        )
         .subcommand(Command::new("user").about("用户信息"))
         .subcommand(
             Command::new("down")
@@ -41,7 +45,7 @@ async fn run_app() -> crate::Result<()> {
     match matches.subcommand() {
         None => app().print_help()?,
         Some((subcommand, matches)) => match subcommand {
-            "login" => login().await?,
+            "login" => login(matches).await?,
             "user" => user().await?,
             "down" => down::down(matches).await?,
             _ => app().print_help()?,
@@ -50,17 +54,24 @@ async fn run_app() -> crate::Result<()> {
     Ok(())
 }
 
-async fn login() -> Result<()> {
+async fn login(args: &ArgMatches) -> Result<()> {
+    let console_qr = args.is_present("console_qrcode");
+
     let client = bilirust::Client::new();
     let qr_data = client.login_qr().await.unwrap();
-    let code = QrCode::new(qr_data.url.clone().as_str().as_bytes()).unwrap();
-    let image = code.render::<Luma<u8>>().build();
-    let path = join_paths(vec![
-        &template_dir(),
-        &(uuid::Uuid::new_v4().to_string() + ".png"),
-    ]);
-    image.save(path.as_str()).unwrap();
-    opener::open(path).unwrap();
+    if console_qr {
+        qr2term::print_qr(qr_data.url.clone().as_str()).unwrap();
+    } else {
+        let code = QrCode::new(qr_data.url.clone().as_str().as_bytes()).unwrap();
+        let image = code.render::<Luma<u8>>().build();
+        let path = join_paths(vec![
+            &template_dir(),
+            &(uuid::Uuid::new_v4().to_string() + ".png"),
+        ]);
+        image.save(path.as_str()).unwrap();
+        opener::open(path).unwrap();
+    }
+
     loop {
         sleep(Duration::new(3, 0));
         let info = client.login_qr_info(qr_data.oauth_key.clone()).await;
