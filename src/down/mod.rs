@@ -135,7 +135,20 @@ async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
             let video = video.unwrap();
             let audio = audio.unwrap();
             // 文件名
-            let name = format!("{}", info.title);
+            let orign_name = format!("{}", info.title);
+            println!("<原始名字>下载到文件 : {}", orign_name);
+            let name = orign_name.replace("|", "_");
+            let name = name.replace("?", "_");
+            let name = name.replace(":", "_");
+            let name = name.replace(">", "_");
+            let name = name.replace("<", "_");
+            let name = name.replace("/", "_");
+            let name = name.replace("\\", "_");
+            let name = name.replace("*", "_");
+            let name = name.replace("&", "_");
+            println!("<保存名字>下载到文件 : {}", name);
+            // # '/ \ : * ? " < > |'
+            // name = name.replace(" ", "_")
             let audio_file = format!("{}.audio", name);
             let video_file = format!("{}.video", name);
             let mix_file = format!("{}.mp4", name);
