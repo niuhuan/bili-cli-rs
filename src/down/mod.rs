@@ -1,7 +1,5 @@
 use std::env::current_dir;
-use std::io::Write;
 use std::path::Path;
-
 use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
 use clap::ArgMatches;
 use dialoguer::Select;
@@ -9,10 +7,10 @@ use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::io::StreamReader;
 
-use crate::local::join_paths;
+use crate::local::{allowed_file_name, join_paths};
 use crate::{args, ffmpeg_cmd, login_client};
 
 lazy_static! {
@@ -135,20 +133,7 @@ async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
             let video = video.unwrap();
             let audio = audio.unwrap();
             // 文件名
-            let orign_name = format!("{}", info.title);
-            println!("<原始名字>下载到文件 : {}", orign_name);
-            let name = orign_name.replace("|", "_");
-            let name = name.replace("?", "_");
-            let name = name.replace(":", "_");
-            let name = name.replace(">", "_");
-            let name = name.replace("<", "_");
-            let name = name.replace("/", "_");
-            let name = name.replace("\\", "_");
-            let name = name.replace("*", "_");
-            let name = name.replace("&", "_");
-            println!("<保存名字>下载到文件 : {}", name);
-            // # '/ \ : * ? " < > |'
-            // name = name.replace(" ", "_")
+            let name = allowed_file_name(&info.title);
             let audio_file = format!("{}.audio", name);
             let video_file = format!("{}.video", name);
             let mix_file = format!("{}.mp4", name);
@@ -203,7 +188,7 @@ async fn down_series(_matches: &ArgMatches, id: String, url: String, ss: bool) -
     );
     let project_dir = join_paths(vec![
         current_dir().unwrap().to_str().unwrap(),
-        format!("{}", ss_state.media_info.series.as_str()).as_str(),
+        allowed_file_name(ss_state.media_info.series.as_str()).as_str(),
     ]);
     println!("  保存位置 : {}", project_dir.as_str());
     println!();
@@ -241,6 +226,7 @@ async fn down_series(_matches: &ArgMatches, id: String, url: String, ss: bool) -
         std::fs::create_dir_all(ss_dir.as_str()).unwrap();
         for ep in &x.1.ep_list {
             let name = format!("{}. ({}) {}", ep.i, ep.title_format, ep.long_title);
+            let name = allowed_file_name(&name);
             println!("{}", &name);
             let audio_name = format!("{}.audio", name);
             let video_name = format!("{}.video", name);
@@ -294,19 +280,18 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
             .progress_chars("#>-"),
     );
     let mut down_count: u64 = 0;
-    let mut file = std::fs::File::create(path).unwrap();
-    let mut buf = [0; 8192];
-    let mut reader = StreamReader::new(rsp.bytes_stream().map_err(convert_error));
+    let mut buf = [0; 2 << 5 * 2 << 10];
+    let mut file = BufWriter::with_capacity(1 << 20, tokio::fs::File::create(path).await.unwrap());
+    let mut reader = BufReader::with_capacity(1 << 20, StreamReader::new(rsp.bytes_stream().map_err(convert_error)));
     loop {
         pb.set_position(down_count);
-        let read = reader.read(&mut buf);
-        let read = read.await;
+        let read = reader.read(&mut buf).await;
         match read {
             Ok(read) => {
                 if read == 0 {
                     break;
                 }
-                file.write(&buf[0..read]).unwrap();
+                file.write(&buf[0..read]).await.unwrap();
                 down_count = down_count + read as u64;
             }
             Err(err) => {
@@ -314,6 +299,7 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
             }
         }
     }
+    file.flush().await.unwrap();
     drop(file);
     drop(reader);
     pb.finish_and_clear();
