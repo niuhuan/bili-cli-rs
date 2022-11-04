@@ -12,7 +12,7 @@ use lazy_static::lazy_static;
 use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
 
-use crate::local::join_paths;
+use crate::local::{allowed_file_name, join_paths};
 use crate::{args, ffmpeg_cmd, login_client};
 
 lazy_static! {
@@ -135,20 +135,7 @@ async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
             let video = video.unwrap();
             let audio = audio.unwrap();
             // 文件名
-            let orign_name = format!("{}", info.title);
-            println!("<原始名字>下载到文件 : {}", orign_name);
-            let name = orign_name.replace("|", "_");
-            let name = name.replace("?", "_");
-            let name = name.replace(":", "_");
-            let name = name.replace(">", "_");
-            let name = name.replace("<", "_");
-            let name = name.replace("/", "_");
-            let name = name.replace("\\", "_");
-            let name = name.replace("*", "_");
-            let name = name.replace("&", "_");
-            println!("<保存名字>下载到文件 : {}", name);
-            // # '/ \ : * ? " < > |'
-            // name = name.replace(" ", "_")
+            let name = allowed_file_name(&info.title);
             let audio_file = format!("{}.audio", name);
             let video_file = format!("{}.video", name);
             let mix_file = format!("{}.mp4", name);
@@ -203,7 +190,7 @@ async fn down_series(_matches: &ArgMatches, id: String, url: String, ss: bool) -
     );
     let project_dir = join_paths(vec![
         current_dir().unwrap().to_str().unwrap(),
-        format!("{}", ss_state.media_info.series.as_str()).as_str(),
+        allowed_file_name(ss_state.media_info.series.as_str()).as_str(),
     ]);
     println!("  保存位置 : {}", project_dir.as_str());
     println!();
@@ -241,6 +228,7 @@ async fn down_series(_matches: &ArgMatches, id: String, url: String, ss: bool) -
         std::fs::create_dir_all(ss_dir.as_str()).unwrap();
         for ep in &x.1.ep_list {
             let name = format!("{}. ({}) {}", ep.i, ep.title_format, ep.long_title);
+            let name = allowed_file_name(&name);
             println!("{}", &name);
             let audio_name = format!("{}.audio", name);
             let video_name = format!("{}.video", name);

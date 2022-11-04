@@ -230,3 +230,18 @@ pub(crate) async fn save_property_from_db(
 pub(crate) async fn save_property(k: String, v: String) -> Result<()> {
     save_property_from_db(PROPERTY_DB.get().await.lock().await.deref(), k, v).await
 }
+
+pub(crate) fn allowed_file_name(title: &str) -> String {
+    title.replace("#","_")
+        .replace("'","_")
+        .replace("/","_")
+        .replace("\\","_")
+        .replace(":","_")
+        .replace("*","_")
+        .replace("?","_")
+        .replace("\"","_")
+        .replace(">","_")
+        .replace("<","_")
+        .replace("|","_")
+        .replace("&","_")
+}
