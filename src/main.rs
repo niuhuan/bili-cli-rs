@@ -30,7 +30,8 @@ fn app() -> Command<'static> {
                 .about("下载视频")
                 .arg(args::format())
                 .arg(args::url())
-                .arg(args::ss()),
+                .arg(args::ss())
+                .arg(args::choose_ep()),
         )
 }
 

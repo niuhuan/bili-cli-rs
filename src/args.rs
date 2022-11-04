@@ -76,3 +76,17 @@ pub(crate) fn url_value(matches: &ArgMatches) -> String {
 pub(crate) fn ss_value(matches: &ArgMatches) -> bool {
     matches.is_present("ss")
 }
+
+/// 获取EP
+pub(crate) fn choose_ep() -> Arg<'static> {
+    arg!(<ce>)
+        .short('c')
+        .long("ce")
+        .required(false)
+        .takes_value(false)
+        .help("加上这个可以选择要下载的ep, 而不是全部EP")
+}
+
+pub(crate) fn choose_ep_value(matches: &ArgMatches) -> bool {
+    matches.is_present("ce")
+}

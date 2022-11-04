@@ -7,8 +7,9 @@ use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
+use tokio::io::AsyncReadExt;
 use tokio_util::io::StreamReader;
+use std::io::Write;
 
 use crate::local::{allowed_file_name, join_paths};
 use crate::{args, ffmpeg_cmd, login_client};
@@ -169,7 +170,7 @@ async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
 }
 
 /// 下载一系列视频
-async fn down_series(_matches: &ArgMatches, id: String, url: String, ss: bool) -> crate::Result<()> {
+async fn down_series(matches: &ArgMatches, id: String, url: String, ss: bool) -> crate::Result<()> {
     let client = login_client().await?;
     println!();
     println!("匹配到合集 : {}", id);
@@ -198,11 +199,35 @@ async fn down_series(_matches: &ArgMatches, id: String, url: String, ss: bool) -
     }
     std::fs::create_dir_all(project_dir.as_str()).unwrap();
 
+    //
+    let fetch_ids = if args::choose_ep_value(&matches) {
+        let titles = (&ss_state).ss_list.iter().map(|x| format!(
+            "{} ({})",
+            x.id,
+            x.title.as_str(),
+        )).collect_vec();
+        let default_selects = (&titles).iter().map(|_| true).collect_vec();
+        let selects = dialoguer::MultiSelect::new().with_prompt("请选择要下载的合集").items(&titles).defaults(&default_selects)
+            .interact().unwrap();
+        let mut id_list: Vec<i64> = vec![];
+        for i in 0..titles.len() {
+            if selects.contains(&i) {
+                id_list.push(ss_state.ss_list[i].id);
+            }
+        }
+        id_list
+    } else {
+        (&ss_state).ss_list.iter().map(|x| x.id).collect_vec()
+    };
+
     // 找到所有的ss
     // 找到所有ss的bv
     println!("搜索视频");
     let mut sss: Vec<(Ss, SsState, String)> = vec![];
     for x in ss_state.ss_list {
+        if !fetch_ids.contains(&x.id) {
+            continue;
+        }
         let videos_info = client.videos_info(format!("ss{}", x.id)).await.unwrap();
         let x_dir_name = format!(
             "{} ({}) {}",
@@ -280,18 +305,19 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
             .progress_chars("#>-"),
     );
     let mut down_count: u64 = 0;
-    let mut buf = [0; 2 << 5 * 2 << 10];
-    let mut file = BufWriter::with_capacity(1 << 20, tokio::fs::File::create(path).await.unwrap());
-    let mut reader = BufReader::with_capacity(1 << 20, StreamReader::new(rsp.bytes_stream().map_err(convert_error)));
+    let mut file = std::fs::File::create(path).unwrap();
+    let mut buf = [0; 8192];
+    let mut reader = StreamReader::new(rsp.bytes_stream().map_err(convert_error));
     loop {
         pb.set_position(down_count);
-        let read = reader.read(&mut buf).await;
+        let read = reader.read(&mut buf);
+        let read = read.await;
         match read {
             Ok(read) => {
                 if read == 0 {
                     break;
                 }
-                file.write(&buf[0..read]).await.unwrap();
+                file.write(&buf[0..read]).unwrap();
                 down_count = down_count + read as u64;
             }
             Err(err) => {
@@ -299,7 +325,6 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
             }
         }
     }
-    file.flush().await.unwrap();
     drop(file);
     drop(reader);
     pb.finish_and_clear();
