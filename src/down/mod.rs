@@ -1,5 +1,3 @@
-use std::env::current_dir;
-use std::path::Path;
 use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
 use clap::ArgMatches;
 use dialoguer::Select;
@@ -7,6 +5,8 @@ use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
+use std::env::current_dir;
+use std::path::Path;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::io::StreamReader;
 
@@ -17,7 +17,7 @@ lazy_static! {
     static ref SHORT_PATTERN: regex::Regex =
         regex::Regex::new(r"//b\d+\.tv/([0-9a-zA-Z]+)$").unwrap();
     static ref BV_PATTERN: regex::Regex = regex::Regex::new(r"BV[0-9a-zA-Z]{10}").unwrap();
-    static ref COLLECTION_PATTERN: regex::Regex = regex::Regex::new(r"(ep)|(ss)[0-9]+").unwrap();
+    static ref COLLECTION_PATTERN: regex::Regex = regex::Regex::new(r"((ep)|(ss))[0-9]+").unwrap();
 }
 
 // 新下载
@@ -46,7 +46,13 @@ pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
         return down_bv(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
     }
     if let Some(find) = COLLECTION_PATTERN.find(url.as_str()) {
-        return down_series(&matches, (&(url[find.start()..find.end()])).to_owned(), url, ss).await;
+        return down_series(
+            &matches,
+            (&(url[find.start()..find.end()])).to_owned(),
+            url,
+            ss,
+        )
+        .await;
     }
     Ok(())
 }
@@ -200,14 +206,18 @@ async fn down_series(matches: &ArgMatches, id: String, url: String, ss: bool) ->
 
     //
     let fetch_ids = if args::choose_ep_value(&matches) {
-        let titles = (&ss_state).ss_list.iter().map(|x| format!(
-            "{} ({})",
-            x.id,
-            x.title.as_str(),
-        )).collect_vec();
+        let titles = (&ss_state)
+            .ss_list
+            .iter()
+            .map(|x| format!("{} ({})", x.id, x.title.as_str(),))
+            .collect_vec();
         let default_selects = (&titles).iter().map(|_| true).collect_vec();
-        let selects = dialoguer::MultiSelect::new().with_prompt("请选择要下载的合集").items(&titles).defaults(&default_selects)
-            .interact().unwrap();
+        let selects = dialoguer::MultiSelect::new()
+            .with_prompt("请选择要下载的合集")
+            .items(&titles)
+            .defaults(&default_selects)
+            .interact()
+            .unwrap();
         let mut id_list: Vec<i64> = vec![];
         for i in 0..titles.len() {
             if selects.contains(&i) {
@@ -294,7 +304,10 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
     let size = content_length(&rsp);
     let mut buf = Box::new([0; 1 << 18]);
     let mut file = BufWriter::with_capacity(1 << 18, tokio::fs::File::create(path).await.unwrap());
-    let mut reader = BufReader::with_capacity(1 << 18, StreamReader::new(rsp.bytes_stream().map_err(convert_error)));
+    let mut reader = BufReader::with_capacity(
+        1 << 18,
+        StreamReader::new(rsp.bytes_stream().map_err(convert_error)),
+    );
     let (sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(1 << 10);
     let sjb = tokio::spawn(async move {
         loop {
@@ -327,7 +340,7 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
         }
         pb.finish_and_clear();
     });
-    let (s, r) = tokio::join!(sjb,rjb);
+    let (s, r) = tokio::join!(sjb, rjb);
     s.unwrap();
     r.unwrap();
 }
