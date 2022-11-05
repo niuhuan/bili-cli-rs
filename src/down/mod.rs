@@ -7,9 +7,8 @@ use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::io::StreamReader;
-use std::io::Write;
 
 use crate::local::{allowed_file_name, join_paths};
 use crate::{args, ffmpeg_cmd, login_client};
@@ -293,41 +292,44 @@ async fn down_series(matches: &ArgMatches, id: String, url: String, ss: bool) ->
 async fn down_file_to(url: &str, path: &str, title: &str) {
     let rsp = request_resource(url).await;
     let size = content_length(&rsp);
-    let pb = ProgressBar::new(size);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template(
-                &*("".to_owned()
-                    + "{spinner:.green}  "
-                    + title
-                    + " [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}"),
-            )
-            .progress_chars("#>-"),
-    );
-    let mut down_count: u64 = 0;
-    let mut file = std::fs::File::create(path).unwrap();
-    let mut buf = [0; 8192];
-    let mut reader = StreamReader::new(rsp.bytes_stream().map_err(convert_error));
-    loop {
-        pb.set_position(down_count);
-        let read = reader.read(&mut buf);
-        let read = read.await;
-        match read {
-            Ok(read) => {
-                if read == 0 {
-                    break;
-                }
-                file.write(&buf[0..read]).unwrap();
-                down_count = down_count + read as u64;
+    let mut buf = Box::new([0; 1 << 18]);
+    let mut file = BufWriter::with_capacity(1 << 18, tokio::fs::File::create(path).await.unwrap());
+    let mut reader = BufReader::with_capacity(1 << 18, StreamReader::new(rsp.bytes_stream().map_err(convert_error)));
+    let (sender, mut receiver) = tokio::sync::mpsc::channel::<Vec<u8>>(1 << 10);
+    let sjb = tokio::spawn(async move {
+        loop {
+            let read = reader.read(buf.as_mut()).await.unwrap();
+            if read == 0 {
+                break;
             }
-            Err(err) => {
-                panic!("{}", err)
-            }
+            sender.send(buf[0..read].to_vec()).await.unwrap();
         }
-    }
-    drop(file);
-    drop(reader);
-    pb.finish_and_clear();
+    });
+    let title = title.to_string();
+    let rjb = tokio::spawn(async move {
+        let pb = ProgressBar::new(size);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template(
+                    &*("".to_owned()
+                        + "{spinner:.green}  "
+                        + title.as_str()
+                        + " [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}"),
+                )
+                .progress_chars("#>-"),
+        );
+        let mut down_count: u64 = 0;
+        pb.set_position(down_count);
+        while let Some(msg) = receiver.recv().await {
+            file.write(&msg).await.unwrap();
+            down_count = down_count + msg.len() as u64;
+            pb.set_position(down_count);
+        }
+        pb.finish_and_clear();
+    });
+    let (s, r) = tokio::join!(sjb,rjb);
+    s.unwrap();
+    r.unwrap();
 }
 
 fn convert_error(err: reqwest::Error) -> std::io::Error {
