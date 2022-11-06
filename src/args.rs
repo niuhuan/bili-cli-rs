@@ -4,8 +4,12 @@ use dialoguer::{Input, Select};
 
 /// 控制台输出二维码参数,
 pub(crate) fn qr_console() -> Arg<'static> {
-    arg!(console_qrcode: --console "在控制台输出二维码")
+    arg!(<console_qrcode>)
+        .short('c')
+        .long("console")
         .required(false)
+        .takes_value(false)
+        .help("在控制台输出二维码")
 }
 
 /// 格式参数, 下载bv的时候可以指定格式
@@ -89,4 +93,13 @@ pub(crate) fn choose_ep() -> Arg<'static> {
 
 pub(crate) fn choose_ep_value(matches: &ArgMatches) -> bool {
     matches.is_present("ce")
+}
+
+pub(crate) fn help() -> Arg<'static> {
+    arg!(<help>)
+        .short('h')
+        .long("help")
+        .required(false)
+        .takes_value(false)
+        .help("打印帮助")
 }

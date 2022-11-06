@@ -18,7 +18,7 @@ bili-cli
   - [x] EP/SS下载
   - [x] 来自手机的短视频/短链接
   - [ ] 断点续传
-  - [ ] 下载过滤器
+  - [x] 集合下载时选择EP
 
 ## 如何使用
 
@@ -27,7 +27,14 @@ bili-cli
 
 ```shell
 
-cargo run -- down
+# 登录你的账号
+cargo login
+
+# 在控制台打印二维码
+cargo login -c
+
+# 打印下载帮助
+cargo run -- down -h
 
 # 下载合集时如果出现异常可以尝试增加ss参数
 cargo run -- down --ss

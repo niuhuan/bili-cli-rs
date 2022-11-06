@@ -22,7 +22,8 @@ fn app() -> Command<'static> {
         .subcommand(
             Command::new("login")
                 .about("使用二维码登录")
-                .arg(args::qr_console()),
+                .arg(args::qr_console())
+                .arg(args::help()),
         )
         .subcommand(Command::new("user").about("用户信息"))
         .subcommand(
@@ -31,8 +32,11 @@ fn app() -> Command<'static> {
                 .arg(args::format())
                 .arg(args::url())
                 .arg(args::ss())
-                .arg(args::choose_ep()),
+                .arg(args::choose_ep())
+                .arg(args::help()),
         )
+        .subcommand(Command::new("help").about("打印帮助"))
+        .arg(args::help())
 }
 
 #[tokio::main]
