@@ -1,17 +1,16 @@
 use bilirust::{FNVAL_DASH, FNVAL_MP4};
-use clap::{arg, Arg, ArgMatches, Command};
+use clap::{arg, Arg, ArgAction, ArgMatches, Command};
 use dialoguer::{Input, Select};
 use once_cell::sync::OnceCell;
 
 pub(crate) static MATCHES: OnceCell<ArgMatches> = OnceCell::new();
 
-fn app() -> Command<'static> {
+pub fn app() -> Command {
     Command::new("bili-cli")
         .subcommand(
             Command::new("login")
                 .about("使用二维码登录")
-                .arg(qr_console())
-                .arg(help()),
+                .arg(qr_console()),
         )
         .subcommand(Command::new("user").about("用户信息"))
         .subcommand(
@@ -21,16 +20,12 @@ fn app() -> Command<'static> {
                 .arg(url())
                 .arg(ss())
                 .arg(choose_ep())
-                .arg(resume_download())
-                .arg(help()),
+                .arg(resume_download()),
         )
-        .subcommand(Command::new("help").about("打印帮助"))
-        .arg(help())
 }
 
 pub(crate) fn init_app() {
-    let matches = app().get_matches();
-    MATCHES.set(matches).unwrap();
+    MATCHES.set(app().get_matches()).unwrap();
 }
 
 pub(crate) fn print_help() -> crate::Result<()> {
@@ -51,38 +46,49 @@ pub(crate) fn subcommand() -> Option<String> {
 }
 
 /// 控制台输出二维码参数
-fn qr_console() -> Arg<'static> {
+pub(crate) fn qr_console() -> Arg {
     arg!(<console_qrcode>)
         .short('c')
         .long("console")
-        .required(false)
-        .takes_value(false)
+        .action(ArgAction::SetTrue)
         .help("在控制台输出二维码")
 }
 
 /// 控制台输出二维码参数
 pub(crate) fn qr_console_value() -> bool {
-    args().is_present("console_qrcode")
+    args().subcommand().unwrap().1.get_flag("console_qrcode")
 }
 
 /// 格式参数, 下载bv的时候可以指定格式
 /// -f mp4 默认使用mp4不再确认
-pub(crate) fn format() -> Arg<'static> {
-    arg!(-f --format <format>)
+pub(crate) fn format() -> Arg {
+    arg!(<format>)
+        .short('f')
+        .long("format")
         .required(false)
         .default_value("choose")
         .help("视频格式 只能为 mp4/dash/choose 其中之一")
-        .validator(|format| match format {
-            "mp4" => Ok(()),
-            "dash" => Ok(()),
-            "choose" => Ok(()),
-            _ => Err("视频格式 只能为 mp4/dash/choose 其中之一"),
-        })
+        .value_parser(format_v)
+}
+
+fn format_v(format: &str) -> Result<String, String> {
+    match format {
+        "mp4" => Ok("mp4".to_string()),
+        "dash" => Ok("dash".to_string()),
+        "choose" => Ok("choose".to_string()),
+        _ => Err("视频格式 只能为 mp4/dash/choose 其中之一".to_string()),
+    }
 }
 
 /// 获取格式的值
 pub(crate) fn format_value() -> &'static str {
-    let mut format_str: &str = args().value_of("format").unwrap();
+    let format_string = args()
+        .subcommand()
+        .unwrap()
+        .1
+        .get_one::<String>("format")
+        .unwrap();
+    let mut format_str: &str = format_string.as_str();
     if "choose" == format_str {
         format_str = ["dash", "mp4"][Select::new()
             .with_prompt("选择视频格式")
@@ -104,23 +110,17 @@ pub(crate) fn format_fnval(format_str: &str) -> i64 {
 }
 
 /// 下载的url, 如果指定的次参数则不需要再输入
-pub(crate) fn url() -> Arg<'static> {
+pub(crate) fn url() -> Arg {
     arg!(<url>).required(false).help("需要下载的url")
-}
-
-/// 下载的url, 如果指定的次参数则不需要再输入
-pub(crate) fn ss() -> Arg<'static> {
-    arg!(<ss>)
-        .short('s')
-        .long("ss")
-        .required(false)
-        .takes_value(false)
-        .help("使用url解析剧集数据而不是id, 有的剧集下不了加上这个试试")
 }
 
 /// 获取URL参数的值
 pub(crate) fn url_value() -> String {
-    let url: &str = args().value_of("url").unwrap_or("");
+    let url: &str = if let Some(str) = args().subcommand().unwrap().1.get_one::<String>("url") {
+        str
+    } else {
+        ""
+    };
     if "" == url {
         return Input::new()
             .with_prompt("请输入视频网址")
@@ -130,39 +130,44 @@ pub(crate) fn url_value() -> String {
     url.to_string()
 }
 
+/// 下载的url, 如果指定的次参数则不需要再输入
+pub(crate) fn ss() -> Arg {
+    arg!(<ss>)
+        .short('s')
+        .long("ss")
+        .required(false)
+        .action(ArgAction::SetTrue)
+        .help("使用url解析剧集数据而不是id, 有的剧集下不了加上这个试试")
+}
+
 pub(crate) fn ss_value() -> bool {
-    args().is_present("ss")
+    args().subcommand().unwrap().1.get_flag("ss")
 }
 
 /// 获取EP
-pub(crate) fn choose_ep() -> Arg<'static> {
+pub(crate) fn choose_ep() -> Arg {
     arg!(<ce>)
         .short('c')
         .long("ce")
         .required(false)
-        .takes_value(false)
+        .action(ArgAction::SetTrue)
         .help("加上这个可以选择要下载的ep, 而不是全部EP")
 }
 
 pub(crate) fn choose_ep_value() -> bool {
-    args().is_present("ce")
-}
-
-pub(crate) fn help() -> Arg<'static> {
-    arg!(<help>)
-        .short('h')
-        .long("help")
-        .required(false)
-        .takes_value(false)
-        .help("打印帮助")
+    args().subcommand().unwrap().1.get_flag("ce")
 }
 
 /// 断点续传
-pub(crate) fn resume_download() -> Arg<'static> {
+pub(crate) fn resume_download() -> Arg {
     arg!(<resume_download>)
         .short('r')
         .long("resume")
         .required(false)
-        .takes_value(false)
+        .action(ArgAction::SetTrue)
         .help("断点续传，您必须选择和上次一样的清晰度，否则会出现视频无法使用的情况")
+}
+
+pub(crate) fn resume_download_value() -> bool {
+    args().subcommand().unwrap().1.get_flag("resume_download")
 }

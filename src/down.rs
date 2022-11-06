@@ -293,10 +293,32 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
 }
 
 async fn down_file_to(url: &str, path: &str, title: &str) {
+    let path = Path::new(path);
+    let checkpoint = if app::resume_download_value() && path.exists() {
+        path.metadata().unwrap().len()
+    } else {
+        0
+    };
     let rsp = request_resource(url).await;
     let size = content_length(&rsp);
+    let (rsp, file) = if checkpoint == 0 {
+        (rsp, tokio::fs::File::create(path).await.unwrap())
+    } else {
+        if size == checkpoint {
+            return;
+        }
+        drop(rsp);
+        (
+            request_resource_rang(url, checkpoint).await,
+            tokio::fs::OpenOptions::new()
+                .append(true)
+                .open(path)
+                .await
+                .unwrap(),
+        )
+    };
+    let mut file = BufWriter::with_capacity(1 << 18, file);
     let mut buf = Box::new([0; 1 << 18]);
-    let mut file = BufWriter::with_capacity(1 << 18, tokio::fs::File::create(path).await.unwrap());
     let mut reader = BufReader::with_capacity(
         1 << 18,
         StreamReader::new(rsp.bytes_stream().map_err(convert_error)),
@@ -324,7 +346,7 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
                 )
                 .progress_chars("#>-"),
         );
-        let mut down_count: u64 = 0;
+        let mut down_count: u64 = checkpoint;
         pb.set_position(down_count);
         while let Some(msg) = receiver.recv().await {
             file.write(&msg).await.unwrap();
@@ -332,6 +354,7 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
             pb.set_position(down_count);
         }
         pb.finish_and_clear();
+        file.flush().await.unwrap();
     });
     let (s, r) = tokio::join!(sjb, rjb);
     s.unwrap();
@@ -347,6 +370,13 @@ async fn request_resource(url: &str) -> reqwest::Response {
         "user-agent",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36",
     ).header("referer", "https://www.bilibili.com").send().await.unwrap().error_for_status().unwrap()
+}
+
+async fn request_resource_rang(url: &str, begin: u64) -> reqwest::Response {
+    reqwest::Client::new().get(url).header(
+        "user-agent",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36",
+    ).header("referer", "https://www.bilibili.com").header("Range",format!("bytes={}-",begin)).send().await.unwrap().error_for_status().unwrap()
 }
 
 fn content_length(rsp: &reqwest::Response) -> u64 {
