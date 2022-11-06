@@ -1,70 +1,44 @@
+use crate::app::init_app;
+pub(crate) use anyhow::Result;
+use bilirust::WebToken;
+use image::Luma;
+use local::{join_paths, load_property, save_property, template_dir};
+use qrcode::QrCode;
+use serde_json::{from_str, to_string};
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 
-pub(crate) use anyhow::Result;
-use bilirust::WebToken;
-use clap::{ArgMatches, Command};
-use image::Luma;
-use qrcode::QrCode;
-use serde_json::{from_str, to_string};
-
-use local::{join_paths, load_property, save_property, template_dir};
-
-mod args;
+mod app;
 mod down;
 mod entities;
 mod ffmpeg_cmd;
 mod local;
 
-fn app() -> Command<'static> {
-    Command::new("bili-cli")
-        .subcommand(
-            Command::new("login")
-                .about("使用二维码登录")
-                .arg(args::qr_console())
-                .arg(args::help()),
-        )
-        .subcommand(Command::new("user").about("用户信息"))
-        .subcommand(
-            Command::new("down")
-                .about("下载视频")
-                .arg(args::format())
-                .arg(args::url())
-                .arg(args::ss())
-                .arg(args::choose_ep())
-                .arg(args::help()),
-        )
-        .subcommand(Command::new("help").about("打印帮助"))
-        .arg(args::help())
-}
-
 #[tokio::main]
 async fn main() {
+    init_app();
     run_app().await.unwrap();
 }
 
 async fn run_app() -> crate::Result<()> {
     ffmpeg_cmd::ffmpeg_run_version()?;
-    let matches = app().get_matches();
-    match matches.subcommand() {
-        None => app().print_help()?,
-        Some((subcommand, matches)) => match subcommand {
-            "login" => login(matches).await?,
+    match app::subcommand() {
+        None => app::print_help()?,
+        Some(subcommand) => match subcommand.as_str() {
+            "login" => login().await?,
             "user" => user().await?,
-            "down" => down::down(matches).await?,
-            _ => app().print_help()?,
+            "down" => down::down().await?,
+            _ => app::print_help()?,
         },
     }
     Ok(())
 }
 
-async fn login(args: &ArgMatches) -> Result<()> {
-    let console_qr = args.is_present("console_qrcode");
-
+async fn login() -> Result<()> {
     let client = bilirust::Client::new();
     let qr_data = client.login_qr().await.unwrap();
-    if console_qr {
+    if app::qr_console_value() {
         qr2term::print_qr(qr_data.url.clone().as_str()).unwrap();
     } else {
         let code = QrCode::new(qr_data.url.clone().as_str().as_bytes()).unwrap();

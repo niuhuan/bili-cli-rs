@@ -166,6 +166,7 @@ dependencies = [
  "indicatif",
  "itertools",
  "lazy_static",
+ "once_cell",
  "opener",
  "qr2term",
  "qrcode",

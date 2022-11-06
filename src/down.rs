@@ -1,5 +1,4 @@
 use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
-use clap::ArgMatches;
 use dialoguer::Select;
 use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -11,7 +10,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::io::StreamReader;
 
 use crate::local::{allowed_file_name, join_paths};
-use crate::{args, ffmpeg_cmd, login_client};
+use crate::{app, ffmpeg_cmd, login_client};
 
 lazy_static! {
     static ref SHORT_PATTERN: regex::Regex =
@@ -21,9 +20,9 @@ lazy_static! {
 }
 
 // 新下载
-pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
-    let mut url = args::url_value(&matches);
-    let ss = args::ss_value(&matches);
+pub(crate) async fn down() -> crate::Result<()> {
+    let mut url = app::url_value();
+    let ss = app::ss_value();
     if let Some(_) = SHORT_PATTERN.find(url.as_str()) {
         let rsp = reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
@@ -43,29 +42,23 @@ pub(crate) async fn down(matches: &ArgMatches) -> crate::Result<()> {
         }
     }
     if let Some(find) = BV_PATTERN.find(url.as_str()) {
-        return down_bv(&matches, (&(url[find.start()..find.end()])).to_owned()).await;
+        return down_bv((&(url[find.start()..find.end()])).to_owned()).await;
     }
     if let Some(find) = COLLECTION_PATTERN.find(url.as_str()) {
-        return down_series(
-            &matches,
-            (&(url[find.start()..find.end()])).to_owned(),
-            url,
-            ss,
-        )
-        .await;
+        return down_series((&(url[find.start()..find.end()])).to_owned(), url, ss).await;
     }
     Ok(())
 }
 
-async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
+async fn down_bv(bv: String) -> crate::Result<()> {
     let client = login_client().await?;
     // 获取基本信息
     println!("匹配到 : {}", bv.clone());
     let info = client.bv_info(bv.clone()).await.unwrap();
     println!("  {}", &info.title);
     // 获取格式+获取清晰度
-    let format_str = args::format_value(&matches);
-    let format = args::format_fnval(format_str);
+    let format_str = app::format_value();
+    let format = app::format_fnval(format_str);
     let vu = client
         .bv_download_url(bv.clone(), info.cid, format, VIDEO_QUALITY_4K)
         .await
@@ -175,7 +168,7 @@ async fn down_bv(matches: &ArgMatches, bv: String) -> crate::Result<()> {
 }
 
 /// 下载一系列视频
-async fn down_series(matches: &ArgMatches, id: String, url: String, ss: bool) -> crate::Result<()> {
+async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
     let client = login_client().await?;
     println!();
     println!("匹配到合集 : {}", id);
@@ -205,7 +198,7 @@ async fn down_series(matches: &ArgMatches, id: String, url: String, ss: bool) ->
     std::fs::create_dir_all(project_dir.as_str()).unwrap();
 
     //
-    let fetch_ids = if args::choose_ep_value(&matches) {
+    let fetch_ids = if app::choose_ep_value() {
         let titles = (&ss_state)
             .ss_list
             .iter()
