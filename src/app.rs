@@ -133,7 +133,6 @@ pub(crate) fn url_value() -> String {
 /// 下载的url, 如果指定的次参数则不需要再输入
 pub(crate) fn ss() -> Arg {
     arg!(<ss>)
-        .short('s')
         .long("ss")
         .required(false)
         .action(ArgAction::SetTrue)
@@ -146,8 +145,7 @@ pub(crate) fn ss_value() -> bool {
 
 /// 获取EP
 pub(crate) fn choose_ep() -> Arg {
-    arg!(<ce>)
-        .short('c')
+    arg!(<choose_ep>)
         .long("ce")
         .required(false)
         .action(ArgAction::SetTrue)
@@ -155,7 +153,7 @@ pub(crate) fn choose_ep() -> Arg {
 }
 
 pub(crate) fn choose_ep_value() -> bool {
-    args().subcommand().unwrap().1.get_flag("ce")
+    args().subcommand().unwrap().1.get_flag("choose_ep")
 }
 
 /// 断点续传
@@ -165,9 +163,21 @@ pub(crate) fn resume_download() -> Arg {
         .long("resume")
         .required(false)
         .action(ArgAction::SetTrue)
-        .help("断点续传，您必须选择和上次一样的清晰度，否则会出现视频无法使用的情况")
+        .help("断点续传，现在只对合集视频时生效。您必须选择和上次一样的清晰度，否则会出现视频无法使用的情况。")
 }
 
 pub(crate) fn resume_download_value() -> bool {
     args().subcommand().unwrap().1.get_flag("resume_download")
+}
+
+pub(crate) fn choose_quality() -> Arg {
+    arg!(<choose_quality>)
+        .long("cq")
+        .required(false)
+        .action(ArgAction::SetTrue)
+        .help("断点续传，现在只对合集视频时生效。加上这个可以手动选择清晰度，否则使用最高清晰度。")
+}
+
+pub(crate) fn choose_quality_value() -> bool {
+    args().subcommand().unwrap().1.get_flag("choose_quality")
 }

@@ -1,3 +1,4 @@
+use anyhow::Context;
 use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
 use dialoguer::Select;
 use futures::stream::TryStreamExt;
@@ -300,7 +301,7 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
         0
     };
     let rsp = request_resource(url).await;
-    let size = content_length(&rsp);
+    let size = content_length(&rsp).unwrap();
     let (rsp, file) = if checkpoint == 0 {
         (rsp, tokio::fs::File::create(path).await.unwrap())
     } else {
@@ -344,6 +345,7 @@ async fn down_file_to(url: &str, path: &str, title: &str) {
                         + title.as_str()
                         + " [{wide_bar:.cyan/blue}] {bytes}/{total_bytes}"),
                 )
+                .unwrap()
                 .progress_chars("#>-"),
         );
         let mut down_count: u64 = checkpoint;
@@ -379,12 +381,13 @@ async fn request_resource_rang(url: &str, begin: u64) -> reqwest::Response {
     ).header("referer", "https://www.bilibili.com").header("Range",format!("bytes={}-",begin)).send().await.unwrap().error_for_status().unwrap()
 }
 
-fn content_length(rsp: &reqwest::Response) -> u64 {
-    rsp.headers()
+fn content_length(rsp: &reqwest::Response) -> crate::Result<u64> {
+    Ok(rsp
+        .headers()
         .get("content-length")
-        .unwrap()
+        .with_context(|| "未能取得文件长度, HEADER不存在")?
         .to_str()
-        .unwrap()
-        .parse::<u64>()
-        .unwrap()
+        .with_context(|| "未能取得文件长度, HEADER不能使用")?
+        .parse()
+        .with_context(|| "未能取得文件长度, HEADER不能识别未数字")?)
 }
