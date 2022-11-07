@@ -17,7 +17,9 @@ lazy_static! {
     static ref SHORT_PATTERN: regex::Regex =
         regex::Regex::new(r"//b\d+\.tv/([0-9a-zA-Z]+)$").unwrap();
     static ref BV_PATTERN: regex::Regex = regex::Regex::new(r"BV[0-9a-zA-Z]{10}").unwrap();
-    static ref COLLECTION_PATTERN: regex::Regex = regex::Regex::new(r"((ep)|(ss))[0-9]+").unwrap();
+    static ref SERIES_PATTERN: regex::Regex = regex::Regex::new(r"((ep)|(ss))[0-9]+").unwrap();
+    static ref USER_COLLECTION_DETAIL_PATTERN: regex::Regex =
+        regex::Regex::new(r"/([0-9]+)/channel/collectiondetail\?sid=([0-9]+)").unwrap();
 }
 
 // 新下载
@@ -45,8 +47,13 @@ pub(crate) async fn down() -> crate::Result<()> {
     if let Some(find) = BV_PATTERN.find(url.as_str()) {
         return down_bv((&(url[find.start()..find.end()])).to_owned()).await;
     }
-    if let Some(find) = COLLECTION_PATTERN.find(url.as_str()) {
+    if let Some(find) = SERIES_PATTERN.find(url.as_str()) {
         return down_series((&(url[find.start()..find.end()])).to_owned(), url, ss).await;
+    }
+    if let Some(find) = USER_COLLECTION_DETAIL_PATTERN.captures(url.as_str()) {
+        let mid: i32 = find.get(1).unwrap().as_str().parse().unwrap();
+        let sid: i32 = find.get(2).unwrap().as_str().parse().unwrap();
+        return down_collection_detail(mid, sid).await;
     }
     Ok(())
 }
@@ -290,6 +297,65 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
         }
     }
     println!("全部完成");
+    Ok(())
+}
+
+async fn down_collection_detail(mid: i32, sid: i32) -> crate::Result<()> {
+    let client = login_client().await?;
+    // 获取第一页
+    let mut current_page = 1;
+    let mut page = client
+        .collection_video_page(mid, sid, false, current_page, 20)
+        .await
+        .unwrap();
+    println!("获取到合集 : {}", page.meta.name);
+    println!();
+    let folder = allowed_file_name(page.meta.name.as_str());
+    std::fs::create_dir_all(folder.as_str()).unwrap();
+    loop {
+        // 下载视频
+        for archive in page.archives {
+            println!("{}", archive.title);
+            let name = allowed_file_name(&archive.title);
+            let audio_name = format!("{}.audio", name);
+            let video_name = format!("{}.video", name);
+            let final_name = format!("{}.mp4", name);
+            let audio_file = join_paths(vec![folder.as_str(), audio_name.as_str()]);
+            let video_file = join_paths(vec![folder.as_str(), video_name.as_str()]);
+            let final_file = join_paths(vec![folder.as_str(), final_name.as_str()]);
+            if Path::new(&&final_file).exists() {
+                continue;
+            }
+            //
+            let info = client.bv_info(archive.bvid).await.unwrap();
+            let video_url = client
+                .bv_download_url(info.bvid, info.cid, FNVAL_DASH, VIDEO_QUALITY_4K)
+                .await
+                .unwrap();
+            let audio_url = video_url.dash.audio.first().unwrap().base_url.as_str();
+            let video_url = video_url.dash.video.first().unwrap().base_url.as_str();
+            //
+            down_file_to(audio_url, &audio_file, "下载音频").await;
+            println!(" > 下载音频");
+            down_file_to(video_url, &video_file, "下载视频").await;
+            println!(" > 下载视频");
+            println!(" > 合并视频");
+            ffmpeg_cmd::ffmpeg_merge_file(vec![&video_file, &audio_file], &final_file).unwrap();
+            println!(" > 清理合并前的数据");
+            let _ = std::fs::remove_file(&audio_file);
+            let _ = std::fs::remove_file(&video_file);
+            println!();
+        }
+        // 获取下一页
+        if page.page.page_size * page.page.page_num >= page.page.total {
+            break;
+        }
+        current_page += 1;
+        page = client
+            .collection_video_page(mid, sid, false, current_page, 20)
+            .await
+            .unwrap();
+    }
     Ok(())
 }
 

@@ -169,15 +169,3 @@ pub(crate) fn resume_download() -> Arg {
 pub(crate) fn resume_download_value() -> bool {
     args().subcommand().unwrap().1.get_flag("resume_download")
 }
-
-pub(crate) fn choose_quality() -> Arg {
-    arg!(<choose_quality>)
-        .long("cq")
-        .required(false)
-        .action(ArgAction::SetTrue)
-        .help("断点续传，现在只对合集视频时生效。加上这个可以手动选择清晰度，否则使用最高清晰度。")
-}
-
-pub(crate) fn choose_quality_value() -> bool {
-    args().subcommand().unwrap().1.get_flag("choose_quality")
-}
