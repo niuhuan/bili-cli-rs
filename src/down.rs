@@ -61,6 +61,7 @@ pub(crate) async fn down() -> crate::Result<()> {
 async fn down_bv(bv: String) -> crate::Result<()> {
     let client = login_client().await?;
     // 获取基本信息
+    println!();
     println!("匹配到 : {}", bv.clone());
     let info = client.bv_info(bv.clone()).await.unwrap();
     println!("  {}", &info.title);
@@ -253,20 +254,19 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
         sss.push((x, videos_info, x_dir_name));
     }
     println!();
-
     println!("下载视频");
-    println!();
     for x in &sss {
         let ss_dir = join_paths(vec![project_dir.as_str(), x.2.as_str()]);
         std::fs::create_dir_all(ss_dir.as_str()).unwrap();
         for ep in &x.1.ep_list {
             let name = format!("{}. ({}) {}", ep.i, ep.title_format, ep.long_title);
             let name = allowed_file_name(&name);
+            println!();
             println!("{}", &name);
             let audio_name = format!("{}.audio", name);
             let video_name = format!("{}.video", name);
             let final_name = format!("{}.mp4", name);
-            let audio_file = join_paths(vec![ss_dir.as_str(), audio_name.as_str()]);
+            let audio_file = join_paths(vec![&ss_dir, &audio_name]);
             let video_file = join_paths(vec![&ss_dir, &video_name]);
             let final_file = join_paths(vec![&ss_dir, &final_name]);
             if Path::new(&&final_file).exists() {
@@ -293,9 +293,9 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
             println!(" > 清理合并前的数据");
             let _ = std::fs::remove_file(&audio_file);
             let _ = std::fs::remove_file(&video_file);
-            println!();
         }
     }
+    println!();
     println!("全部完成");
     Ok(())
 }
@@ -308,6 +308,7 @@ async fn down_collection_detail(mid: i32, sid: i32) -> crate::Result<()> {
         .collection_video_page(mid, sid, false, current_page, 20)
         .await
         .unwrap();
+    println!();
     println!("获取到合集 : {}", page.meta.name);
     println!();
     let folder = allowed_file_name(page.meta.name.as_str());
@@ -315,6 +316,7 @@ async fn down_collection_detail(mid: i32, sid: i32) -> crate::Result<()> {
     loop {
         // 下载视频
         for archive in page.archives {
+            println!();
             println!("{}", archive.title);
             let name = allowed_file_name(&archive.title);
             let audio_name = format!("{}.audio", name);
@@ -344,7 +346,6 @@ async fn down_collection_detail(mid: i32, sid: i32) -> crate::Result<()> {
             println!(" > 清理合并前的数据");
             let _ = std::fs::remove_file(&audio_file);
             let _ = std::fs::remove_file(&video_file);
-            println!();
         }
         // 获取下一页
         if page.page.page_size * page.page.page_num >= page.page.total {
@@ -356,6 +357,8 @@ async fn down_collection_detail(mid: i32, sid: i32) -> crate::Result<()> {
             .await
             .unwrap();
     }
+    println!();
+    println!("全部完成");
     Ok(())
 }
 
