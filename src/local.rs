@@ -93,8 +93,8 @@ pub(crate) async fn connect_db(path: &str) -> DatabaseConnection {
 
 /// 如果表不存在则创建
 pub(crate) async fn create_table_if_not_exists<E>(db: &DatabaseConnection, entity: E)
-    where
-        E: EntityTrait,
+where
+    E: EntityTrait,
 {
     if !has_table(db, entity.table_name()).await {
         create_table(db, entity).await;
@@ -111,14 +111,14 @@ async fn has_table(db: &DatabaseConnection, table_name: &str) -> bool {
         ),
     );
     let rsp = db.query_one(stmt).await.unwrap().unwrap();
-    let count: i32 = rsp.try_get("", "c").unwrap();
+    let count: i64 = rsp.try_get("", "c").unwrap();
     count > 0
 }
 
 /// 创建表
 async fn create_table<E>(db: &DatabaseConnection, entity: E)
-    where
-        E: EntityTrait,
+where
+    E: EntityTrait,
 {
     let builder = db.get_database_backend();
     let schema = Schema::new(builder);
@@ -144,7 +144,7 @@ pub(crate) async fn index_exists(
         .await
         .unwrap()
         .unwrap()
-        .try_get::<i32>("", "c")
+        .try_get::<i64>("", "c")
         .unwrap()
         > 0
 }
@@ -232,16 +232,17 @@ pub(crate) async fn save_property(k: String, v: String) -> Result<()> {
 }
 
 pub(crate) fn allowed_file_name(title: &str) -> String {
-    title.replace("#","_")
-        .replace("'","_")
-        .replace("/","_")
-        .replace("\\","_")
-        .replace(":","_")
-        .replace("*","_")
-        .replace("?","_")
-        .replace("\"","_")
-        .replace(">","_")
-        .replace("<","_")
-        .replace("|","_")
-        .replace("&","_")
+    title
+        .replace("#", "_")
+        .replace("'", "_")
+        .replace("/", "_")
+        .replace("\\", "_")
+        .replace(":", "_")
+        .replace("*", "_")
+        .replace("?", "_")
+        .replace("\"", "_")
+        .replace(">", "_")
+        .replace("<", "_")
+        .replace("|", "_")
+        .replace("&", "_")
 }

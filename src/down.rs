@@ -51,8 +51,8 @@ pub(crate) async fn down() -> crate::Result<()> {
         return down_series((&(url[find.start()..find.end()])).to_owned(), url, ss).await;
     }
     if let Some(find) = USER_COLLECTION_DETAIL_PATTERN.captures(url.as_str()) {
-        let mid: i32 = find.get(1).unwrap().as_str().parse().unwrap();
-        let sid: i32 = find.get(2).unwrap().as_str().parse().unwrap();
+        let mid: i64 = find.get(1).unwrap().as_str().parse().unwrap();
+        let sid: i64 = find.get(2).unwrap().as_str().parse().unwrap();
         return down_collection_detail(mid, sid).await;
     }
     Ok(())
@@ -300,7 +300,7 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
     Ok(())
 }
 
-async fn down_collection_detail(mid: i32, sid: i32) -> crate::Result<()> {
+async fn down_collection_detail(mid: i64, sid: i64) -> crate::Result<()> {
     let client = login_client().await?;
     // 获取第一页
     let mut current_page = 1;
