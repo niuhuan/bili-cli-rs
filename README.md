@@ -55,7 +55,7 @@ bili-cli
 # --resume 失败时断点续传
 
 # 下载用户的合集 （合集的页面的url，会将这个合集下载到一个文件夹）
-./bili-cli down https://space.bilibili.com/273715/channel/collectiondetail?sid=44375&ctype=0
+./bili-cli down "https://space.bilibili.com/273715/channel/collectiondetail?sid=44375&ctype=0"
 
 ```
 

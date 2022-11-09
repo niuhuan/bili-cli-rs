@@ -132,7 +132,7 @@ pub(crate) fn url_value() -> String {
 
 /// 下载的url, 如果指定的次参数则不需要再输入
 pub(crate) fn parse_input_url() -> Arg {
-    arg!(<parse_by_input_url>)
+    arg!(<parse_input_url>)
         .long("parse-input-url")
         .required(false)
         .action(ArgAction::SetTrue)
