@@ -18,8 +18,8 @@ pub fn app() -> Command {
                 .about("下载视频")
                 .arg(format())
                 .arg(url())
-                .arg(ss())
-                .arg(choose_ep())
+                .arg(parse_input_url())
+                .arg(choose_seasons())
                 .arg(resume_download()),
         )
 }
@@ -131,29 +131,31 @@ pub(crate) fn url_value() -> String {
 }
 
 /// 下载的url, 如果指定的次参数则不需要再输入
-pub(crate) fn ss() -> Arg {
-    arg!(<ss>)
-        .long("ss")
+pub(crate) fn parse_input_url() -> Arg {
+    arg!(<parse_by_input_url>)
+        .long("parse-input-url")
         .required(false)
         .action(ArgAction::SetTrue)
-        .help("使用url解析剧集数据而不是id, 有的剧集下不了加上这个试试")
+        .help(
+            "使用url解析剧集数据而不是id, 有的剧集下不了加上这个试试 (对集合类视频有效，对BV无效)",
+        )
 }
 
-pub(crate) fn ss_value() -> bool {
-    args().subcommand().unwrap().1.get_flag("ss")
+pub(crate) fn parse_input_url_value() -> bool {
+    args().subcommand().unwrap().1.get_flag("parse_input_url")
 }
 
 /// 获取EP
-pub(crate) fn choose_ep() -> Arg {
-    arg!(<choose_ep>)
-        .long("ce")
+pub(crate) fn choose_seasons() -> Arg {
+    arg!(<choose_seasons>)
+        .long("choose-seasons")
         .required(false)
         .action(ArgAction::SetTrue)
-        .help("加上这个可以选择要下载的ep, 而不是全部EP")
+        .help("加上这个可以选择要下载的seasons, 而不是全部的seasons")
 }
 
-pub(crate) fn choose_ep_value() -> bool {
-    args().subcommand().unwrap().1.get_flag("choose_ep")
+pub(crate) fn choose_seasons_value() -> bool {
+    args().subcommand().unwrap().1.get_flag("choose_seasons")
 }
 
 /// 断点续传

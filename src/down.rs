@@ -25,7 +25,7 @@ lazy_static! {
 // 新下载
 pub(crate) async fn down() -> crate::Result<()> {
     let mut url = app::url_value();
-    let ss = app::ss_value();
+    let ss = app::parse_input_url_value();
     if let Some(_) = SHORT_PATTERN.find(url.as_str()) {
         let rsp = reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
@@ -207,7 +207,7 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
     std::fs::create_dir_all(project_dir.as_str()).unwrap();
 
     //
-    let fetch_ids = if app::choose_ep_value() {
+    let fetch_ids = if app::choose_seasons_value() {
         let titles = (&ss_state)
             .ss_list
             .iter()
