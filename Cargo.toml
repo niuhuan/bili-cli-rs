@@ -32,7 +32,7 @@ once_cell = "1.16.0"
 rsmpeg = { optional = true, version = "0.12" }
 
 [features]
-default = ["ffmpeg_api"]
+default = []
 ffmpeg_api = [
     "dep:rsmpeg"
 ]

@@ -62,20 +62,20 @@ bili-cli
 
 ## 如何构建
 
-### 构建方式1: feature: 使用命令行方式调用ffmpeg
+### 构建1: 使用命令行方式调用ffmpeg
 
 需安装ffmpeg命令行程序。
 
 ```shell
-cargo build --release --no-default-features
+cargo build --release
 ```
 
-### 构建方式2: feature: 将ffmpegApi静态链接到bin
+### 构建方式2: 将ffmpegApi静态链接到bin
 
 这种方式用户不需要额外安装ffmpeg. 但是需要在构建时链接ffmpeg依赖库。
 
 ```shell
-cargo build --release
+cargo build --release --features=ffmpeg_api
 ```
 
 #### 依赖库的安装
