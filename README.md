@@ -64,6 +64,8 @@ bili-cli
 
 ### 构建方式1: feature: 使用命令行方式调用ffmpeg
 
+需安装ffmpeg命令行程序。
+
 ```shell
 cargo build --release --no-default-features
 ```
@@ -82,7 +84,7 @@ cargo build --release
 
 - 安装 vcpkg
 - 根据 vcpkg install ffmpeg --triplet=x64-windows-static-md
-- 如果您在中国大陆的网络环境下，您可能需要设置代理
+- 如果您在中国大陆的网络环境下，您可能需要设置代理之后再运行 vcpkg install 命令
   ```PowerShell
   $env:HTTP_PROXY = http://host:port/
   $env:HTTPS_PROXY = http://host:port/
@@ -90,3 +92,26 @@ cargo build --release
 ##### *nix
 
 - 使用PkgConfig
+
+根据rusty_ffmpeg官方文档需要设置FFMPEG_PKG_CONFIG_PATH变量。
+
+（linux构建成功，macos12构建失败，调试中）
+
+```shell
+# 克隆ffmpeg并检出release/4.4
+git clone https://git.ffmpeg.org/ffmpeg.git
+cd ffmpeg
+git checkout release/4.4
+
+# 构建ffmpeg并安装
+mkdir build
+cd build
+../configure --prefix=/Volumes/DATA/Runtimes/ffmpeg4.4
+make -j12
+make install
+```
+
+```shell
+export FFMPEG_PKG_CONFIG_PATH=/Volumes/DATA/Runtimes/ffmpeg4.4/lib/pkgconfig
+cargo build --release
+```
