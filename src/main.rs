@@ -12,7 +12,7 @@ use std::time::Duration;
 mod app;
 mod down;
 mod entities;
-mod ffmpeg_cmd;
+mod ffmpeg;
 mod local;
 
 #[tokio::main]
@@ -22,7 +22,7 @@ async fn main() {
 }
 
 async fn run_app() -> crate::Result<()> {
-    ffmpeg_cmd::ffmpeg_run_version()?;
+    ffmpeg::ffmpeg_run_version()?;
     match app::subcommand() {
         None => app::print_help()?,
         Some(subcommand) => match subcommand.as_str() {

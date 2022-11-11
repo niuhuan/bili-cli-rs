@@ -11,7 +11,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::io::StreamReader;
 
 use crate::local::{allowed_file_name, join_paths};
-use crate::{app, ffmpeg_cmd, login_client};
+use crate::{app, ffmpeg, login_client};
 
 lazy_static! {
     static ref SHORT_PATTERN: regex::Regex =
@@ -155,8 +155,7 @@ async fn down_bv(bv: String) -> crate::Result<()> {
             down_file_to(&video.base_url, &video_file, "下载视频").await;
             println!(" > 下载视频");
             println!(" > 合并视频");
-            let mix_result =
-                ffmpeg_cmd::ffmpeg_merge_file(vec![&video_file, &audio_file], &mix_file);
+            let mix_result = ffmpeg::ffmpeg_merge_file(vec![&video_file, &audio_file], &mix_file);
             mix_result.unwrap();
             println!(" > 清理合并前的数据");
             let _ = std::fs::remove_file(&audio_file);
@@ -289,7 +288,7 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
             down_file_to(video_url, &video_file, "下载视频").await;
             println!(" > 下载视频");
             println!(" > 合并视频");
-            ffmpeg_cmd::ffmpeg_merge_file(vec![&video_file, &audio_file], &final_file).unwrap();
+            ffmpeg::ffmpeg_merge_file(vec![&video_file, &audio_file], &final_file).unwrap();
             println!(" > 清理合并前的数据");
             let _ = std::fs::remove_file(&audio_file);
             let _ = std::fs::remove_file(&video_file);
@@ -342,7 +341,7 @@ async fn down_collection_detail(mid: i64, sid: i64) -> crate::Result<()> {
             down_file_to(video_url, &video_file, "下载视频").await;
             println!(" > 下载视频");
             println!(" > 合并视频");
-            ffmpeg_cmd::ffmpeg_merge_file(vec![&video_file, &audio_file], &final_file).unwrap();
+            ffmpeg::ffmpeg_merge_file(vec![&video_file, &audio_file], &final_file).unwrap();
             println!(" > 清理合并前的数据");
             let _ = std::fs::remove_file(&audio_file);
             let _ = std::fs::remove_file(&video_file);

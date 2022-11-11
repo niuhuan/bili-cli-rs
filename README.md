@@ -23,9 +23,6 @@ bili-cli
 
 ## 如何使用
 
-1. 将ffmpeg命令添加到PATH (使用本软件的必要条件, 合并使用)
-2. 运行本软件
-
 ```shell
 
 ###  登录线管
@@ -63,3 +60,33 @@ bili-cli
 
 官方token有效期只有一个月
 
+## 如何构建
+
+### 构建方式1: feature: 使用命令行方式调用ffmpeg
+
+```shell
+cargo build --release --no-default-features
+```
+
+### 构建方式2: feature: 将ffmpegApi静态链接到bin
+
+这种方式用户不需要额外安装ffmpeg. 但是需要在构建时链接ffmpeg依赖库。
+
+```shell
+cargo build --release
+```
+
+#### 依赖库的安装
+
+##### windows
+
+- 安装 vcpkg
+- 根据 vcpkg install ffmpeg --triplet=x64-windows-static-md
+- 如果您在中国大陆的网络环境下，您可能需要设置代理
+  ```PowerShell
+  $env:HTTP_PROXY = http://host:port/
+  $env:HTTPS_PROXY = http://host:port/
+  ```
+##### *nix
+
+- 使用PkgConfig
