@@ -27,6 +27,7 @@ pub(crate) async fn down() -> crate::Result<()> {
     let mut url = app::url_value();
     let ss = app::parse_input_url_value();
     if let Some(_) = SHORT_PATTERN.find(url.as_str()) {
+        url = url.replace("http://", "https://");
         let rsp = reqwest::ClientBuilder::new()
             .redirect(reqwest::redirect::Policy::none())
             .build()?
@@ -198,7 +199,6 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
         allowed_file_name(ss_state.media_info.series.as_str()).as_str(),
     ]);
     println!("  保存位置 : {}", project_dir.as_str());
-    println!();
     // todo
     if Path::new(project_dir.as_str()).exists() {
         //panic!("文件夹已存在, 请使用continue");
@@ -207,6 +207,7 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
 
     //
     let fetch_ids = if app::choose_seasons_value() {
+        println!();
         let titles = (&ss_state)
             .ss_list
             .iter()
@@ -232,6 +233,7 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
 
     // 找到所有的ss
     // 找到所有ss的bv
+    println!();
     println!("搜索视频");
     let mut sss: Vec<(Ss, SsState, String)> = vec![];
     for x in ss_state.ss_list {
