@@ -56,6 +56,15 @@ fn cfg_local_dir() -> String {
     ])
 }
 
+/// 取配置文件目录
+#[cfg(target_os = "android")]
+fn cfg_local_dir() -> String {
+    join_paths(vec![
+        dirs::home_dir().unwrap().to_str().unwrap(),
+        ".bili-cli",
+    ])
+}
+
 /// 取临时文件目录
 #[cfg(target_os = "macos")]
 pub(crate) fn template_dir() -> String {
@@ -72,6 +81,12 @@ pub(crate) fn template_dir() -> String {
 #[cfg(target_os = "windows")]
 pub(crate) fn template_dir() -> String {
     std::env::temp_dir().to_str().unwrap().to_owned()
+}
+
+/// 取临时文件目录
+#[cfg(target_os = "android")]
+pub(crate) fn template_dir() -> String {
+    "/tmp".to_owned()
 }
 
 /// 初始化配置文件目录

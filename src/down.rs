@@ -1,12 +1,13 @@
+use std::env::current_dir;
+use std::path::Path;
+
 use anyhow::Context;
-use bilirust::{Audio, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
+use bilirust::{Audio, FavListOrder, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
 use dialoguer::Select;
 use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use std::env::current_dir;
-use std::path::Path;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader, BufWriter};
 use tokio_util::io::StreamReader;
 
@@ -20,6 +21,8 @@ lazy_static! {
     static ref SERIES_PATTERN: regex::Regex = regex::Regex::new(r"((ep)|(ss))[0-9]+").unwrap();
     static ref USER_COLLECTION_DETAIL_PATTERN: regex::Regex =
         regex::Regex::new(r"/([0-9]+)/channel/collectiondetail\?sid=([0-9]+)").unwrap();
+    static ref USER_FAV_LIST_PATTERN: regex::Regex =
+        regex::Regex::new(r"/favlist\?fid=([0-9]+)").unwrap();
 }
 
 // 新下载
@@ -55,6 +58,10 @@ pub(crate) async fn down() -> crate::Result<()> {
         let mid: i64 = find.get(1).unwrap().as_str().parse().unwrap();
         let sid: i64 = find.get(2).unwrap().as_str().parse().unwrap();
         return down_collection_detail(mid, sid).await;
+    }
+    if let Some(find) = USER_FAV_LIST_PATTERN.captures(url.as_str()) {
+        let fid: i64 = find.get(1).unwrap().as_str().parse().unwrap();
+        return down_fav_list(fid).await;
     }
     Ok(())
 }
@@ -360,6 +367,67 @@ async fn down_collection_detail(mid: i64, sid: i64) -> crate::Result<()> {
     }
     println!();
     println!("全部完成");
+    Ok(())
+}
+
+async fn down_fav_list(fid: i64) -> crate::Result<()> {
+    let client = login_client().await?;
+    let mut current_page = 1;
+    let page_size = 20;
+    loop {
+        let page = client
+            .fav_list_page(fid, current_page, page_size, None, FavListOrder::Mtime)
+            .await
+            .unwrap();
+        println!();
+        println!("获取到收藏夹 : {} : 第{}页", page.info.title, current_page);
+        println!();
+        let folder = allowed_file_name(page.info.title.as_str());
+        std::fs::create_dir_all(folder.as_str()).unwrap();
+        // 下载视频
+        for archive in page.medias {
+            println!();
+            println!("{}", archive.title);
+            let name = if archive.page == 0 {
+                allowed_file_name(&format!("{} - {}", archive.title, archive.intro))
+            } else {
+                allowed_file_name(&archive.title)
+            };
+            let audio_name = format!("{}.audio", name);
+            let video_name = format!("{}.video", name);
+            let final_name = format!("{}.mp4", name);
+            let audio_file = join_paths(vec![folder.as_str(), audio_name.as_str()]);
+            let video_file = join_paths(vec![folder.as_str(), video_name.as_str()]);
+            let final_file = join_paths(vec![folder.as_str(), final_name.as_str()]);
+            if Path::new(&&final_file).exists() {
+                continue;
+            }
+            //
+            let info = client.bv_info(archive.bvid).await.unwrap();
+            let video_url = client
+                .bv_download_url(info.bvid, info.cid, FNVAL_DASH, VIDEO_QUALITY_4K)
+                .await
+                .unwrap();
+            let audio_url = video_url.dash.audio.first().unwrap().base_url.as_str();
+            let video_url = video_url.dash.video.first().unwrap().base_url.as_str();
+            //
+            down_file_to(audio_url, &audio_file, "下载音频").await;
+            println!(" > 下载音频");
+            down_file_to(video_url, &video_file, "下载视频").await;
+            println!(" > 下载视频");
+            println!(" > 合并视频");
+            ffmpeg::ffmpeg_merge_file(vec![&video_file, &audio_file], &final_file).unwrap();
+            println!(" > 清理合并前的数据");
+            let _ = std::fs::remove_file(&audio_file);
+            let _ = std::fs::remove_file(&video_file);
+        }
+        // 获取下一页
+        if page.has_more {
+            current_page += 1;
+        } else {
+            break;
+        }
+    }
     Ok(())
 }
 
