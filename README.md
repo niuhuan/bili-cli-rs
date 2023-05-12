@@ -114,5 +114,5 @@ make install
 
 ```shell
 export FFMPEG_PKG_CONFIG_PATH=/Volumes/DATA/Runtimes/ffmpeg4.4/lib/pkgconfig
-cargo build --release
+cargo build --release --features=ffmpeg_api
 ```
