@@ -302,7 +302,11 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
             }
             let bv = client
                 .bv_download_url(
-                    ep.bvid.clone(),
+                    if !ep.bvid.is_empty() {
+                        ep.bvid.clone()
+                    } else {
+                        bilirust::av_to_bv(ep.aid)
+                    },
                     ep.cid.clone(),
                     FNVAL_DASH,
                     VIDEO_QUALITY_4K,
