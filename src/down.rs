@@ -2,7 +2,10 @@ use std::env::current_dir;
 use std::path::Path;
 
 use anyhow::Context;
-use bilirust::{Audio, FavListOrder, Ss, SsState, Video, FNVAL_DASH, VIDEO_QUALITY_4K};
+use bilirust::{
+    web::{Season, SsState},
+    Audio, FavListOrder, Video, FNVAL_DASH, VIDEO_QUALITY_4K,
+};
 use dialoguer::Select;
 use futures::stream::TryStreamExt;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -196,9 +199,9 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
     println!("  系列名称 : {}", ss_state.media_info.series.clone());
     println!(
         "  包含番剧 : {} ",
-        (&ss_state.ss_list)
+        (&ss_state.season_list)
             .iter()
-            .map(|i| i.title.as_str())
+            .map(|i| i.season_title.as_str())
             .join(" / ")
     );
     let project_dir = join_paths(vec![
@@ -216,9 +219,9 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
     let fetch_ids = if app::choose_seasons_value() {
         println!();
         let titles = (&ss_state)
-            .ss_list
+            .season_list
             .iter()
-            .map(|x| format!("{} ({})", x.id, x.title.as_str(),))
+            .map(|x| format!("{} ({})", x.season_id, x.season_title.as_str(),))
             .collect_vec();
         let default_selects = (&titles).iter().map(|_| true).collect_vec();
         let selects = dialoguer::MultiSelect::new()
@@ -230,34 +233,41 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
         let mut id_list: Vec<i64> = vec![];
         for i in 0..titles.len() {
             if selects.contains(&i) {
-                id_list.push(ss_state.ss_list[i].id);
+                id_list.push(ss_state.season_list[i].season_id);
             }
         }
         id_list
     } else {
-        (&ss_state).ss_list.iter().map(|x| x.id).collect_vec()
+        (&ss_state)
+            .season_list
+            .iter()
+            .map(|x| x.season_id)
+            .collect_vec()
     };
 
     // 找到所有的ss
     // 找到所有ss的bv
     println!();
     println!("搜索视频");
-    let mut sss: Vec<(Ss, SsState, String)> = vec![];
-    for x in ss_state.ss_list {
-        if !fetch_ids.contains(&x.id) {
+    let mut sss: Vec<(Season, SsState, String)> = vec![];
+    for x in ss_state.season_list {
+        if !fetch_ids.contains(&x.season_id) {
             continue;
         }
-        let videos_info = client.videos_info(format!("ss{}", x.id)).await.unwrap();
+        let videos_info = client
+            .videos_info(format!("ss{}", x.season_id))
+            .await
+            .unwrap();
         let x_dir_name = format!(
             "{} ({}) {}",
-            x.id,
-            x.title.as_str(),
+            x.season_id,
+            x.season_title.as_str(),
             videos_info.media_info.season_title.as_str(),
         );
         println!(
             "  {} : 共 {} 个视频",
             x_dir_name.as_str(),
-            videos_info.ep_list.len()
+            videos_info.init_ep_list.len()
         );
         sss.push((x, videos_info, x_dir_name));
     }
@@ -266,8 +276,18 @@ async fn down_series(id: String, url: String, ss: bool) -> crate::Result<()> {
     for x in &sss {
         let ss_dir = join_paths(vec![project_dir.as_str(), x.2.as_str()]);
         std::fs::create_dir_all(ss_dir.as_str()).unwrap();
-        for ep in &x.1.ep_list {
-            let name = format!("{}. ({}) {}", ep.i, ep.title_format, ep.long_title);
+        let mut i = 0;
+        for ep in &x.1.init_ep_list {
+            let name = format!(
+                "{}. ({}) {}",
+                {
+                    let tmp = i;
+                    i += 1;
+                    tmp
+                },
+                ep.title_format,
+                ep.long_title
+            );
             let name = allowed_file_name(&name);
             println!();
             println!("{}", &name);
