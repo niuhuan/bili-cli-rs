@@ -251,7 +251,7 @@ dependencies = [
 [[package]]
 name = "bilirust"
 version = "0.1.0"
-source = "git+https://github.com/niuhuan/bilirust.git?branch=master#cae7cc6d6f60e1f16aaa839875f7c419cc0764dd"
+source = "git+https://github.com/niuhuan/bilirust.git?branch=master#bb61cb1e4e34eb894eea86946a3d8746b79c02f6"
 dependencies = [
  "anyhow",
  "chrono",
@@ -262,6 +262,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
